@@ -4,6 +4,8 @@ This public repository contains operational code only. It contains no Neo applic
 
 ## Current scope
 
+The separate `backup-watchdog.yml` checks only the public aggregate backup-health endpoint once per hour, at minute17UTC, with no repository checkout or secrets. It preserves the existing zero-dollar paid-overage stop. It does not gain access to the maintenance environment or encrypted backups. A manual run is not evidence of a scheduled run; record the actual event and result separately.
+
 The included workflow performs a **read-only retention audit**, manually or weekly, only when `NEO_BACKUP_AUDIT_ENABLED=true`. It uses the protected `NEO_BACKUP_MAINTENANCE` environment, default branch `main`, a checksum-pinned restic binary, a SHA-pinned checkout action and this exact workflow commit. No artifacts or package caches are uploaded. Job duration is bounded to five minutes. No job changes an account budget, purchases services or deletes backups.
 
 The account-wide zero-dollar Actions hard stop must remain enabled. Check included quota before enabling automatic runs. Public standard Linux runner availability is not permission to add paid runner types or services. Environment deployment branches must allow only `main`; no per-run required reviewer is needed for unattended **read-only** weekly audits. Changes to workflow/policy code still require owner review. Review protection and contributor permissions before adding any secret.
