@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '11 4 * * 1'
+    # Temporary real schedule probe; remove after observed run or 2026-11-13 19:55 UTC.
+    - cron: '55 18 13 11 *'
 permissions:
   contents: read
 concurrency:
@@ -13,8 +15,11 @@ jobs:
     if: vars.NEO_BACKUP_AUDIT_ENABLED == 'true' && github.repository == 'Bruce7771/neo-backup-operations' && github.ref == 'refs/heads/main'
     environment: NEO_BACKUP_MAINTENANCE
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
+      - name: Bound temporary schedule probe to its reviewed UTC date
+        if: github.event_name == 'schedule' && github.event.schedule == '55 18 13 11 *'
+        run: test "$(date -u +%F)" = '2026-11-13'
       - name: Load this exact reviewed operational commit
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -42,7 +47,7 @@ jobs:
           chmod 0700 "$RUNNER_TEMP/restic-bin/restic"
           echo "$RUNNER_TEMP/restic-bin" >> "$GITHUB_PATH"
           rm -- "$RUNNER_TEMP/restic.bz2"
-      - name: Plan only; keep inventories and recovery secret private
+      - name: Read-only plan, native integrity and retained component restore
         env:
           RESTIC_REPOSITORY: ${{ secrets.NEO_RESTIC_REPOSITORY }}
           AWS_DEFAULT_REGION: ${{ vars.NEO_B2_REGION }}
@@ -54,5 +59,5 @@ jobs:
           NEO_RESTORED_JSON: ${{ secrets.NEO_RETENTION_RESTORED_JSON }}
           NEO_DEPENDENCIES_JSON: ${{ secrets.NEO_RETENTION_DEPENDENCIES_JSON }}
           NEO_HOURLY_RECOVERY_JSON: ${{ secrets.NEO_RETENTION_HOURLY_RECOVERY_JSON }}
-        run: python3 scripts/retention-audit.py
+        run: python3 scripts/retention-readonly-check.py
       # No artifact/cache upload; no mutation job is enabled here.
