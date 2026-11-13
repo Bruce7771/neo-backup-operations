@@ -7,6 +7,8 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
+from hourly_recovery import derive
 
 ROOT=Path(__file__).resolve().parent
 
@@ -17,7 +19,8 @@ def run(args, env, timeout=45):
 def main():
     env=dict(os.environ)
     required=('RESTIC_REPOSITORY','AWS_ACCESS_KEY_ID','AWS_SECRET_ACCESS_KEY','NEO_RESTIC_PASSWORD',
-              'NEO_POLICY_JSON','NEO_PROTECTED_JSON','NEO_RESTORED_JSON','NEO_DEPENDENCIES_JSON')
+              'NEO_POLICY_JSON','NEO_PROTECTED_JSON','NEO_RESTORED_JSON','NEO_DEPENDENCIES_JSON',
+              'NEO_HOURLY_RECOVERY_JSON')
     if not all(env.get(k) for k in required):
         raise ValueError('Required independent audit credentials/policy are not provisioned')
     if not env['RESTIC_REPOSITORY'].startswith('s3:https://') or not env['RESTIC_REPOSITORY'].rstrip('/').endswith('/restic'):
@@ -35,7 +38,8 @@ def main():
                           'AWS_CONFIG_FILE','AWS_SHARED_CREDENTIALS_FILE'):
             env.pop(dangerous,None)
         for source,target in (('NEO_POLICY_JSON','policy.json'),('NEO_PROTECTED_JSON','protected.json'),
-                              ('NEO_RESTORED_JSON','restored.json'),('NEO_DEPENDENCIES_JSON','dependencies.json')):
+                              ('NEO_RESTORED_JSON','restored.json'),('NEO_DEPENDENCIES_JSON','dependencies.json'),
+                              ('NEO_HOURLY_RECOVERY_JSON','hourly-recovery.json')):
             (work/target).write_text(env.pop(source));(work/target).chmod(0o600)
         version=run(['restic','version'],env)
         if not version.startswith('restic 0.16.4 '):
@@ -50,9 +54,40 @@ def main():
                       '--tag',scope['tag'],'--group-by','host','--keep-within','30d',
                       '--keep-daily','30','--keep-monthly','3'],env)
             destination=work/f'plan-{index}.json';destination.write_text(plan);plans+=['--plan',str(destination)]
+        # The protected secret contains reviewed legacy/external exceptions,
+        # not an owner-maintained list of every new hourly point.
+        deadline=time.monotonic()+180
+        def dump(snapshot,path,maximum):
+            import resource
+            remaining=deadline-time.monotonic()
+            if remaining<=0:
+                raise TimeoutError('Hourly metadata audit exceeded its read-only deadline')
+            def restrict_output():
+                resource.setrlimit(resource.RLIMIT_FSIZE,(maximum,maximum))
+            with tempfile.TemporaryFile(dir=work) as output:
+                subprocess.run(['restic','--no-lock','dump',snapshot,path],env=env,
+                    stdout=output,stderr=subprocess.DEVNULL,check=True,
+                    timeout=min(25,remaining),preexec_fn=restrict_output)
+                if output.tell()>maximum:
+                    raise ValueError('Archive read exceeds reviewed size bound')
+                output.seek(0)
+                return output.read(maximum+1)
+        plan_paths=[Path(plans[i]) for i in range(1,len(plans),2)]
+        edge_inventory,parents,updated=derive(json.loads(inventory),
+            [json.loads(p.read_text()) for p in plan_paths],policy,
+            json.loads((work/'hourly-recovery.json').read_text()),
+            json.loads((work/'restored.json').read_text()),dump)
+        (work/'hourly-recovery.json').write_text(json.dumps(edge_inventory))
+        protected=json.loads((work/'protected.json').read_text())
+        if not isinstance(protected,list):
+            raise ValueError('Protected inventory must be an array')
+        (work/'protected.json').write_text(json.dumps(sorted(set(protected)|parents)))
+        for path,plan in zip(plan_paths,updated):
+            path.write_text(json.dumps(plan))
         command=[sys.executable,str(ROOT/'retention-plan.py'),'--policy',str(work/'policy.json'),
                  '--inventory',str(work/'inventory.json'),'--protected',str(work/'protected.json'),
                  '--restore-evidence',str(work/'restored.json'),'--dependencies',str(work/'dependencies.json'),
+                 '--hourly-recovery',str(work/'hourly-recovery.json'),
                  '--output',str(work/'candidate.json')]+plans
         run(command,env)
         # A parallel writer may change inventory: candidate must be regenerated, never applied.

@@ -21,6 +21,10 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
           fetch-depth: 1
+      - name: Check dependency policy with synthetic fixtures
+        run: |
+          python3 scripts/retention-plan.py --self-test
+          python3 scripts/hourly_recovery_test.py
       - name: Install checksum-pinned restic
         shell: bash
         run: |
@@ -46,5 +50,6 @@ jobs:
           NEO_PROTECTED_JSON: ${{ secrets.NEO_RETENTION_PROTECTED_JSON }}
           NEO_RESTORED_JSON: ${{ secrets.NEO_RETENTION_RESTORED_JSON }}
           NEO_DEPENDENCIES_JSON: ${{ secrets.NEO_RETENTION_DEPENDENCIES_JSON }}
+          NEO_HOURLY_RECOVERY_JSON: ${{ secrets.NEO_RETENTION_HOURLY_RECOVERY_JSON }}
         run: python3 scripts/retention-audit.py
       # No artifact/cache upload; no mutation job is enabled here.
