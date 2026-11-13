@@ -19,6 +19,18 @@ m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 
 
 class Readonly(unittest.TestCase):
+    def test_diagnostic_forwards_only_structured_fixed_fields(self):
+        value={'failure_type':'ValueError','phase':'derive-metadata','source_module':'hourly_metadata_batch.py',
+               'source_line':75,'metadata_stats':{'native_batches':2},'derive_elapsed_seconds':12.5}
+        raw=('untrusted ignored stderr\nNEO_RETENTION_SAFE_FAILURE '+json.dumps(value)).encode()
+        self.assertEqual(m.safe_audit_failure(raw),value)
+        self.assertIsNone(m.safe_audit_failure(b'untrusted only'))
+    def test_diagnostic_rejects_private_fields_paths_or_values(self):
+        value={'failure_type':'ValueError','phase':'derive-metadata','source_module':'hourly_metadata_batch.py',
+               'source_line':75,'metadata_stats':{}}
+        for changed in(dict(value,secret='synthetic'),dict(value,source_module='/private/path'),
+                       dict(value,metadata_stats={'snapshot':'synthetic'}),dict(value,failure_type='unreviewedClass')):
+            self.assertIsNone(m.safe_audit_failure(('NEO_RETENTION_SAFE_FAILURE '+json.dumps(changed)).encode()))
     def test_zero_noop_still_checks_and_restores_without_mutation(self):
         with tempfile.TemporaryDirectory(prefix='readonly-noop.')as tmp:
             root=Path(tmp);source=root/'fixture.db'

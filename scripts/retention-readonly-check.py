@@ -15,6 +15,27 @@ from retention_postcheck import validate,restore
 
 ROOT=Path(__file__).resolve().parent
 
+def safe_audit_failure(raw):
+    """Forward only reviewed structured diagnostics, never raw child stderr."""
+    prefix='NEO_RETENTION_SAFE_FAILURE '
+    for line in raw.decode('utf8',errors='replace').splitlines():
+        if not line.startswith(prefix):continue
+        try:value=json.loads(line[len(prefix):])
+        except ValueError:continue
+        allowed={'failure_type','phase','source_module','source_line','metadata_stats','derive_elapsed_seconds'}
+        if not isinstance(value,dict)or set(value)-allowed:continue
+        if value.get('phase')not in('initialize','inventory','native-plans','derive-metadata','validate-candidate','final-inventory'):continue
+        if value.get('source_module')not in('retention-audit.py','hourly_metadata_batch.py','hourly_recovery.py','hourly_selfcontained_v3.py','asof_recovery_hold.py',None):continue
+        if value.get('failure_type')not in('ValueError','TimeoutError','TimeoutExpired','CalledProcessError',
+                'FileNotFoundError','KeyError','AssertionError','TypeError','JSONDecodeError','OSError'):continue
+        if value.get('source_line')is not None and not(type(value['source_line'])is int and 0<value['source_line']<10000):continue
+        stats=value.get('metadata_stats',{})
+        if not isinstance(stats,dict)or set(stats)-{'native_batches','checkpoint_reads','selected_json_bytes','v3_points_authenticated'}:continue
+        if any(type(n)is not int or n<0 for n in stats.values()):continue
+        if 'derive_elapsed_seconds'in value and not(type(value['derive_elapsed_seconds'])in(int,float)and 0<=value['derive_elapsed_seconds']<3600):continue
+        return value
+    return None
+
 
 def main():
     os.umask(0o077);env=dict(os.environ)
@@ -24,8 +45,13 @@ def main():
         work=Path(tmp);work.chmod(0o700);candidate_path=work/'candidate.json'
         audit=dict(env,NEO_RETENTION_CANDIDATE_OUTPUT=str(candidate_path))
         with tempfile.TemporaryFile(dir=work)as out,tempfile.TemporaryFile(dir=work)as errors:
-            subprocess.run([sys.executable,str(ROOT/'retention-audit.py')],env=audit,stdin=subprocess.DEVNULL,
-                stdout=out,stderr=errors,check=True,timeout=240)
+            try:
+                subprocess.run([sys.executable,str(ROOT/'retention-audit.py')],env=audit,stdin=subprocess.DEVNULL,
+                    stdout=out,stderr=errors,check=True,timeout=240)
+            except subprocess.CalledProcessError:
+                errors.seek(0);diagnostic=safe_audit_failure(errors.read(16384))
+                if diagnostic is not None:print(json.dumps({'audit_safe_failure':diagnostic}),file=sys.stderr)
+                raise
         candidate=json.loads(candidate_path.read_text())
         if candidate.get('apply_ready')is not False:raise ValueError('Read-only candidate unexpectedly authorizes mutation')
         validate(candidate,policy)

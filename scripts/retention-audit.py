@@ -8,10 +8,12 @@ import subprocess
 import sys
 import tempfile
 import time
+import traceback
 from hourly_recovery import derive
 from hourly_metadata_batch import HourlyMetadataBatch
 
 ROOT=Path(__file__).resolve().parent
+SAFE_DIAGNOSTIC={'phase':'initialize'}
 
 def run(args, env, timeout=45):
     return subprocess.run(args,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
@@ -43,11 +45,13 @@ def main():
                               ('NEO_HOURLY_RECOVERY_JSON','hourly-recovery.json')):
             (work/target).write_text(env.pop(source));(work/target).chmod(0o600)
         version=run(['restic','version'],env)
+        SAFE_DIAGNOSTIC['phase']='inventory'
         if not version.startswith('restic 0.16.4 '):
             raise ValueError('Use the reviewed checksum-pinned restic version')
         inventory=run(['restic','--no-lock','snapshots','--json'],env)
         (work/'inventory.json').write_text(inventory)
         plans=[]
+        SAFE_DIAGNOSTIC['phase']='native-plans'
         for index,scope in enumerate(policy['scopes']):
             if not isinstance(scope.get('host'),str) or not scope['host'] or not isinstance(scope.get('tag'),str) or not scope['tag']:
                 raise ValueError('Reviewed host/tag missing from scope policy')
@@ -58,6 +62,7 @@ def main():
         # The protected secret contains reviewed legacy/external exceptions,
         # not an owner-maintained list of every new hourly point.
         deadline=time.monotonic()+180
+        SAFE_DIAGNOSTIC.update(phase='derive-metadata',derive_started_monotonic=deadline-180)
         hourly_scopes=[scope for scope in policy['scopes']if scope.get('kind')=='hourly']
         if len(hourly_scopes)!=1:raise ValueError('Exactly one hourly metadata scope required')
         # Checkpoints outlive a failed audit subprocess within this runner job,
@@ -66,6 +71,7 @@ def main():
         cache_namespace=hashlib.sha256((env['RESTIC_REPOSITORY']+json.dumps(hourly_scopes[0],sort_keys=True)).encode()).hexdigest()
         metadata_batch=HourlyMetadataBatch(cache_parent/('neo-hourly-json-'+cache_namespace),env,
                                           json.loads(inventory),hourly_scopes[0],deadline)
+        SAFE_DIAGNOSTIC['metadata_stats']=metadata_batch.stats
         def dump(snapshot,path,maximum):
             import resource
             if metadata_batch.handles(snapshot,path):
@@ -90,6 +96,7 @@ def main():
             json.loads((work/'restored.json').read_text()),dump)
         metadata_read_proof=dict(metadata_batch.stats,derivation_elapsed_seconds=round(time.monotonic()-(deadline-180),3),
                                 derivation_deadline_seconds=180,payload_or_full_wal_selected_by_batch=False)
+        SAFE_DIAGNOSTIC['phase']='validate-candidate'
         (work/'hourly-recovery.json').write_text(json.dumps(edge_inventory))
         protected=json.loads((work/'protected.json').read_text())
         if not isinstance(protected,list):
@@ -104,6 +111,7 @@ def main():
                  '--output',str(work/'candidate.json')]+plans
         run(command,env)
         # A parallel writer may change inventory: candidate must be regenerated, never applied.
+        SAFE_DIAGNOSTIC['phase']='final-inventory'
         after=run(['restic','--no-lock','snapshots','--json'],env)
         normalize=lambda text:json.dumps(sorted(json.loads(text),key=lambda r:r['id']),sort_keys=True,separators=(',',':'))
         result=json.loads((work/'candidate.json').read_text())
@@ -162,6 +170,17 @@ def main():
 if __name__=='__main__':
     try:main()
     except Exception as exc:
+        allowed={'retention-audit.py','hourly_metadata_batch.py','hourly_recovery.py',
+                 'hourly_selfcontained_v3.py','asof_recovery_hold.py'}
+        frames=[frame for frame in traceback.extract_tb(exc.__traceback__)if Path(frame.filename).name in allowed and frame.name!='require']
+        frame=frames[-1]if frames else None
+        safe={'failure_type':type(exc).__name__,'phase':SAFE_DIAGNOSTIC['phase'],
+              'source_module':Path(frame.filename).name if frame else None,
+              'source_line':frame.lineno if frame else None,
+              'metadata_stats':SAFE_DIAGNOSTIC.get('metadata_stats',{})}
+        if 'derive_started_monotonic'in SAFE_DIAGNOSTIC:
+            safe['derive_elapsed_seconds']=round(time.monotonic()-SAFE_DIAGNOSTIC['derive_started_monotonic'],3)
+        print('NEO_RETENTION_SAFE_FAILURE '+json.dumps(safe),file=sys.stderr)
         # Do not echo restic errors, private filenames, key values or inventory records.
         print('::error::Offsite retention audit failed closed ('+type(exc).__name__+'); no deletion performed',file=sys.stderr)
         raise SystemExit(1)
