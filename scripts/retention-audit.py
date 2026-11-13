@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 from hourly_recovery import derive
+from hourly_metadata_batch import HourlyMetadataBatch
 
 ROOT=Path(__file__).resolve().parent
 
@@ -29,7 +30,7 @@ def main():
     if policy.get('schema')!=1 or len(policy.get('scopes',[]))!=3:
         raise ValueError('Exactly three reviewed backup scopes required')
     # Keep private recovery password, inventory, scope paths and lease data ephemeral.
-    with tempfile.TemporaryDirectory(prefix='neo-retention-audit-') as directory:
+    with tempfile.TemporaryDirectory(prefix='neo-retention-audit-',dir=env.get('RUNNER_TEMP')) as directory:
         work=Path(directory);work.chmod(0o700)
         password=work/'password';password.write_text(env.pop('NEO_RESTIC_PASSWORD'));password.chmod(0o600)
         env['RESTIC_PASSWORD_FILE']=str(password)
@@ -57,8 +58,18 @@ def main():
         # The protected secret contains reviewed legacy/external exceptions,
         # not an owner-maintained list of every new hourly point.
         deadline=time.monotonic()+180
+        hourly_scopes=[scope for scope in policy['scopes']if scope.get('kind')=='hourly']
+        if len(hourly_scopes)!=1:raise ValueError('Exactly one hourly metadata scope required')
+        # Checkpoints outlive a failed audit subprocess within this runner job,
+        # but never leave RUNNER_TEMP or become an uploaded Actions cache.
+        cache_parent=Path(env['RUNNER_TEMP'])if env.get('RUNNER_TEMP')else work
+        cache_namespace=hashlib.sha256((env['RESTIC_REPOSITORY']+json.dumps(hourly_scopes[0],sort_keys=True)).encode()).hexdigest()
+        metadata_batch=HourlyMetadataBatch(cache_parent/('neo-hourly-json-'+cache_namespace),env,
+                                          json.loads(inventory),hourly_scopes[0],deadline)
         def dump(snapshot,path,maximum):
             import resource
+            if metadata_batch.handles(snapshot,path):
+                return metadata_batch.get(snapshot,path,maximum)
             remaining=deadline-time.monotonic()
             if remaining<=0:
                 raise TimeoutError('Hourly metadata audit exceeded its read-only deadline')
@@ -77,6 +88,8 @@ def main():
             [json.loads(p.read_text()) for p in plan_paths],policy,
             json.loads((work/'hourly-recovery.json').read_text()),
             json.loads((work/'restored.json').read_text()),dump)
+        metadata_read_proof=dict(metadata_batch.stats,derivation_elapsed_seconds=round(time.monotonic()-(deadline-180),3),
+                                derivation_deadline_seconds=180,payload_or_full_wal_selected_by_batch=False)
         (work/'hourly-recovery.json').write_text(json.dumps(edge_inventory))
         protected=json.loads((work/'protected.json').read_text())
         if not isinstance(protected,list):
@@ -105,6 +118,7 @@ def main():
             # backups append snapshots. No old or new point is modified.
         result['inventory_stable_for_admission']=stable
         result['append_only_new_snapshots_observed']=not stable
+        result['hourly_metadata_read']=metadata_read_proof
         if result.get('apply_ready') is not False:
             raise ValueError('Read-only planner must never authorize apply')
         # Optional private handoff to the separate manual admission wrapper.
@@ -135,6 +149,9 @@ def main():
                 'hourly_recovery':edge_inventory,'candidate':result}
             destination.write_text(json.dumps(bundle));destination.chmod(0o600)
         print(json.dumps({'candidate_only':True,'deletion_performed':False,
+                          'hourly_metadata_batches':metadata_batch.stats['native_batches'],
+                          'hourly_metadata_checkpoint_reads':metadata_batch.stats['checkpoint_reads'],
+                          'hourly_selected_metadata_bytes':metadata_batch.stats['selected_json_bytes'],
                           'remove_candidates':len(result['remove_snapshot_ids']),
                           'retained':len(result['retained_snapshot_ids']),
                           'protected':len(result['protected_snapshot_ids']),

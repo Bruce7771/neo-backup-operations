@@ -44,6 +44,7 @@ def main():
         call(['--no-cache','--no-lock','check'])
         result=restore(candidate,policy,work,call)
         print(json.dumps({'scope':'independent-retention-readonly-check',
+            'hourly_metadata_read':candidate.get('hourly_metadata_read'),
             'retained_snapshots':len(candidate['retained_snapshot_ids']),
             'protected_snapshots':len(candidate['protected_snapshot_ids']),
             'protected_unknown_hourly_points':candidate.get('protected_unknown_hourly_points',0),

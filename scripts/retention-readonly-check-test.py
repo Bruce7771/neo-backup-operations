@@ -28,7 +28,9 @@ class Readonly(unittest.TestCase):
                 'snapshot':'a'*64,'path':path,'kind':'sqlite','bytes':source.stat().st_size,
                 'sha256':hashlib.sha256(source.read_bytes()).hexdigest()}}
             candidate={'apply_ready':False,'retained_snapshot_ids':['a'*64],'protected_snapshot_ids':['a'*64],
-                'remove_snapshot_ids':[],'protected_unknown_hourly_points':13,'inventory_stable_for_admission':False}
+                'remove_snapshot_ids':[],'protected_unknown_hourly_points':13,'inventory_stable_for_admission':False,
+                'hourly_metadata_read':{'native_batches':2,'v3_points_authenticated':1,
+                    'derivation_elapsed_seconds':12.5,'derivation_deadline_seconds':180}}
             def audit(args,**kwargs):
                 self.assertTrue(args[1].endswith('retention-audit.py'))
                 Path(kwargs['env']['NEO_RETENTION_CANDIDATE_OUTPUT']).write_text(json.dumps(candidate))
@@ -52,6 +54,7 @@ class Readonly(unittest.TestCase):
             result=json.loads(output.getvalue())
             self.assertTrue(result['zero_candidate_noop']);self.assertTrue(result['component_restore_verified'])
             self.assertEqual(result['protected_unknown_hourly_points'],13)
+            self.assertEqual(result['hourly_metadata_read'],candidate['hourly_metadata_read'])
             self.assertFalse(result['expiration_path_exercised']);self.assertFalse(result['fence_acquired'])
             self.assertFalse(any(any(x in args for x in('forget','prune','backup','unlock'))for args in calls))
 
