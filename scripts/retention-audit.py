@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -15,9 +16,32 @@ from hourly_metadata_batch import HourlyMetadataBatch
 ROOT=Path(__file__).resolve().parent
 SAFE_DIAGNOSTIC={'phase':'initialize'}
 
+def nested_planner_failure(stderr):
+    """Map only fixed reviewed failure text/frames; never return raw stderr."""
+    codes={
+      'Every retained configuration delta needs its exact full-parent dependency':'CONFIG_DEPENDENCY_COVERAGE_MISMATCH',
+      'Configuration delta needs explicit restore evidence':'CONFIG_RESTORE_EVIDENCE_MISSING',
+      'Configuration delta parent is absent, unprotected or selected for removal':'CONFIG_PARENT_PROTECTION_MISSING',
+      'Every retained hourly point needs exact reviewed recovery metadata':'HOURLY_DEPENDENCY_COVERAGE_MISMATCH',
+      'Each retained Neo scope needs an explicit restore-verified point':'RESTORED_SCOPE_COVERAGE_MISSING',
+      'UNKNOWN point and every authorized recovery root must stay protected':'UNKNOWN_ROOT_PROTECTION_MISSING',
+      'Self-contained hourly point cannot carry an external parent':'V3_PARENT_CONTRACT_INVALID',
+    }
+    frames=re.findall(r'File "[^"\n]*[/\\](retention-plan\.py|asof_recovery_hold\.py)", line ([0-9]+), in ([A-Za-z_][A-Za-z0-9_]*|<module>)',stderr or'')
+    frames=[row for row in frames if row[2]!='require']
+    errors=re.findall(r'^ValueError: ([^\r\n]+)$',stderr or'',flags=re.MULTILINE)
+    result={'nested_failure_code':codes.get(errors[-1]if errors else'','NESTED_PLANNER_FAILURE_UNCLASSIFIED')}
+    if frames:result.update(nested_source_module=frames[-1][0],nested_source_line=int(frames[-1][1]))
+    return result
+
 def run(args, env, timeout=45):
-    return subprocess.run(args,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
-                          text=True,check=True,timeout=timeout).stdout
+    try:
+        return subprocess.run(args,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                              text=True,check=True,timeout=timeout).stdout
+    except subprocess.CalledProcessError as error:
+        if len(args)>1 and Path(args[1]).name=='retention-plan.py':
+            SAFE_DIAGNOSTIC.update(nested_planner_failure(error.stderr))
+        raise
 
 def main():
     env=dict(os.environ)
@@ -178,6 +202,8 @@ if __name__=='__main__':
               'source_module':Path(frame.filename).name if frame else None,
               'source_line':frame.lineno if frame else None,
               'metadata_stats':SAFE_DIAGNOSTIC.get('metadata_stats',{})}
+        safe.update({key:value for key,value in SAFE_DIAGNOSTIC.items()if key in
+                     ('nested_failure_code','nested_source_module','nested_source_line')})
         if 'derive_started_monotonic'in SAFE_DIAGNOSTIC:
             safe['derive_elapsed_seconds']=round(time.monotonic()-SAFE_DIAGNOSTIC['derive_started_monotonic'],3)
         print('NEO_RETENTION_SAFE_FAILURE '+json.dumps(safe),file=sys.stderr)

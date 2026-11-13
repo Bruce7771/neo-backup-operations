@@ -22,7 +22,8 @@ def safe_audit_failure(raw):
         if not line.startswith(prefix):continue
         try:value=json.loads(line[len(prefix):])
         except ValueError:continue
-        allowed={'failure_type','phase','source_module','source_line','metadata_stats','derive_elapsed_seconds'}
+        allowed={'failure_type','phase','source_module','source_line','metadata_stats','derive_elapsed_seconds',
+                 'nested_failure_code','nested_source_module','nested_source_line'}
         if not isinstance(value,dict)or set(value)-allowed:continue
         if value.get('phase')not in('initialize','inventory','native-plans','derive-metadata','validate-candidate','final-inventory'):continue
         if value.get('source_module')not in('retention-audit.py','hourly_metadata_batch.py','hourly_recovery.py','hourly_selfcontained_v3.py','asof_recovery_hold.py',None):continue
@@ -33,6 +34,12 @@ def safe_audit_failure(raw):
         if not isinstance(stats,dict)or set(stats)-{'native_batches','checkpoint_reads','selected_json_bytes','v3_points_authenticated'}:continue
         if any(type(n)is not int or n<0 for n in stats.values()):continue
         if 'derive_elapsed_seconds'in value and not(type(value['derive_elapsed_seconds'])in(int,float)and 0<=value['derive_elapsed_seconds']<3600):continue
+        if 'nested_source_module'in value and value['nested_source_module']not in('retention-plan.py','asof_recovery_hold.py'):continue
+        if 'nested_source_line'in value and not(type(value['nested_source_line'])is int and 0<value['nested_source_line']<10000):continue
+        if 'nested_failure_code'in value and value['nested_failure_code']not in(
+                'CONFIG_DEPENDENCY_COVERAGE_MISMATCH','CONFIG_RESTORE_EVIDENCE_MISSING','CONFIG_PARENT_PROTECTION_MISSING',
+                'HOURLY_DEPENDENCY_COVERAGE_MISMATCH','RESTORED_SCOPE_COVERAGE_MISSING','UNKNOWN_ROOT_PROTECTION_MISSING',
+                'V3_PARENT_CONTRACT_INVALID','NESTED_PLANNER_FAILURE_UNCLASSIFIED'):continue
         return value
     return None
 

@@ -24,6 +24,9 @@ class Readonly(unittest.TestCase):
                'source_line':75,'metadata_stats':{'native_batches':2},'derive_elapsed_seconds':12.5}
         raw=('untrusted ignored stderr\nNEO_RETENTION_SAFE_FAILURE '+json.dumps(value)).encode()
         self.assertEqual(m.safe_audit_failure(raw),value)
+        nested=dict(value,nested_failure_code='CONFIG_RESTORE_EVIDENCE_MISSING',
+                    nested_source_module='retention-plan.py',nested_source_line=160)
+        self.assertEqual(m.safe_audit_failure(('NEO_RETENTION_SAFE_FAILURE '+json.dumps(nested)).encode()),nested)
         self.assertIsNone(m.safe_audit_failure(b'untrusted only'))
     def test_diagnostic_rejects_private_fields_paths_or_values(self):
         value={'failure_type':'ValueError','phase':'derive-metadata','source_module':'hourly_metadata_batch.py',

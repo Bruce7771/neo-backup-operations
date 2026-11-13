@@ -25,6 +25,7 @@ jobs:
           python3 scripts/hourly_recovery_test.py
           python3 scripts/hourly_selfcontained_v3_test.py
           python3 scripts/hourly_metadata_batch_test.py
+          python3 scripts/retention-audit-diagnostic-test.py
           python3 scripts/retention-postcheck-test.py
           python3 scripts/retention-readonly-check-test.py
       - name: Install checksum-pinned restic
