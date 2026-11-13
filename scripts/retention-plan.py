@@ -46,7 +46,7 @@ def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
 
 
-def validate_hourly_recovery(retained, eligible, protected, restored, evidence, hourly_host, pitr_host):
+def validate_hourly_recovery(retained, eligible, protected, restored, evidence, hourly_host, pitr_host, required_unknown_holds=()):
     """Missing metadata never means legacy or self-contained PostgreSQL."""
     hourly={sid for sid in retained if eligible.get(sid)==hourly_host}
     require(isinstance(evidence,list), 'Hourly recovery evidence must be an explicit array')
@@ -56,6 +56,17 @@ def validate_hourly_recovery(retained, eligible, protected, restored, evidence, 
     require(len(children)==len(set(children)) and set(children)==hourly,
             'Every retained hourly point needs exact reviewed recovery metadata')
     for edge in evidence:
+        if edge.get('kind')=='protected-unknown':
+            require(edge['child_snapshot']in protected and set(required_unknown_holds)<=protected,
+                    'UNKNOWN point and every authorized recovery root must stay protected')
+            require(edge.get('source')=='reviewed-external-policy'and edge.get('hold_verified')is True
+                    and edge.get('restore_coverage')=='unknown'
+                    and edge.get('reason')=='ARCHIVE_CAPTURE_SCOPE_UNDECLARED'
+                    and isinstance(edge.get('evidence_sha256'),str)and HEX.fullmatch(edge['evidence_sha256']),
+                    'UNKNOWN metadata needs explicit protected hold evidence')
+            require(not any(k in edge for k in('verified','postgres_recovery_included','wal_snapshot','restore_point','wal_segment')),
+                    'UNKNOWN hold must not invent recovery coverage')
+            continue
         require(isinstance(edge.get('evidence_sha256'),str) and HEX.fullmatch(edge['evidence_sha256']) and
                 edge.get('verified') is True, 'Hourly metadata needs verified content hash')
         require(edge.get('source') in ('postgres-archive-delivery.json','reviewed-external-policy'),
@@ -148,8 +159,9 @@ def build(inventory, plans, protected, restored, dependencies=None, hourly_recov
     for child in config_ids:verify_ancestry(child,set())
     hourly_host=next(host for host,(tag,_) in SCOPES.items() if tag=='neo-hourly-files')
     pitr_host=next(host for host,(tag,_) in SCOPES.items() if tag=='neo-main-pitr')
+    hold_roots={sid for sid,host in eligible.items()if host in(pitr_host,FULL_MAIN_HOST)}|config_ids
     hourly_recovery=validate_hourly_recovery(all_ids-remove,eligible,protected,restored,
-                                             hourly_recovery,hourly_host,pitr_host)
+                                             hourly_recovery,hourly_host,pitr_host,hold_roots)
     for host in set(eligible.values()):
         host_kept = {sid for sid in keep if eligible[sid] == host}
         require(host_kept and host_kept & restored,
@@ -166,6 +178,7 @@ def build(inventory, plans, protected, restored, dependencies=None, hourly_recov
         "configuration_deltas_preserved":len(config_ids),
         "protected_child_parent_dependencies":dependencies,
         "hourly_recovery_dependencies":hourly_recovery,
+        "protected_unknown_hourly_points":sum(edge.get('kind')=='protected-unknown'for edge in hourly_recovery),
         "requires_writer_fence_and_fresh_inventory": bool(remove),
         "apply_ready": False,
         "physical_b2_versions_selected": False,
@@ -173,6 +186,27 @@ def build(inventory, plans, protected, restored, dependencies=None, hourly_recov
 
 
 class PlannerTests(unittest.TestCase):
+    def unknown_data(self):
+        inv,plans,protected,restored=self.data()
+        hourly=next(row for row in inv if 'neo-hourly-files'in row['tags'])
+        known=dict(hourly,id='a'*64);inv.append(known)
+        roots=[row['id']for row in inv if row is not known]
+        unknown=dict(child_snapshot=hourly['id'],kind='protected-unknown',source='reviewed-external-policy',
+            evidence_sha256='e'*64,reason='ARCHIVE_CAPTURE_SCOPE_UNDECLARED',hold_verified=True,restore_coverage='unknown')
+        edge=dict(child_snapshot=known['id'],kind='sqlite-files-only',source='reviewed-external-policy',
+                  evidence_sha256='f'*64,verified=True,postgres_recovery_included=False)
+        restored=[sid for sid in restored if sid!=hourly['id']]+[known['id']]
+        return inv,plans,roots,restored,[unknown,edge]
+    def test_unknown_protected_not_misclassified_as_restored(self):
+        inv,plans,protected,restored,edges=self.unknown_data()
+        result=self.invoke(inv,plans,protected,restored,hourly_recovery=edges)
+        self.assertEqual(result['protected_unknown_hourly_points'],1)
+        self.assertFalse(result['apply_ready'])
+    def test_unknown_requires_all_recovery_roots_protected(self):
+        inv,plans,protected,restored,edges=self.unknown_data()
+        pitr=next(row['id']for row in inv if 'neo-main-pitr'in row['tags'])
+        with self.assertRaisesRegex(ValueError,'every authorized recovery root'):
+            self.invoke(inv,plans,[sid for sid in protected if sid!=pitr],restored,hourly_recovery=edges)
     def test_hourly_without_metadata_fails_closed(self):
         with self.assertRaisesRegex(ValueError,'Hourly recovery evidence'):
             self.invoke(*self.data(),hourly_recovery=None)

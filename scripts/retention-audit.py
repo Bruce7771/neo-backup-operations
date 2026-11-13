@@ -93,9 +93,18 @@ def main():
         # A parallel writer may change inventory: candidate must be regenerated, never applied.
         after=run(['restic','--no-lock','snapshots','--json'],env)
         normalize=lambda text:json.dumps(sorted(json.loads(text),key=lambda r:r['id']),sort_keys=True,separators=(',',':'))
-        if normalize(inventory)!=normalize(after):
-            raise ValueError('Repository inventory changed during audit; retry candidate without deletion')
         result=json.loads((work/'candidate.json').read_text())
+        stable=normalize(inventory)==normalize(after)
+        if not stable:
+            before_rows={r['id']:r for r in json.loads(inventory)}
+            after_rows={r['id']:r for r in json.loads(after)}
+            append_only=all(sid in after_rows and row==after_rows[sid]for sid,row in before_rows.items())
+            if result['remove_snapshot_ids']or not append_only:
+                raise ValueError('Repository inventory changed during audit; retry candidate without deletion')
+            # A read-only zero-removal observation may finish while working
+            # backups append snapshots. No old or new point is modified.
+        result['inventory_stable_for_admission']=stable
+        result['append_only_new_snapshots_observed']=not stable
         if result.get('apply_ready') is not False:
             raise ValueError('Read-only planner must never authorize apply')
         # Optional private handoff to the separate manual admission wrapper.
@@ -115,6 +124,8 @@ def main():
                           'remove_candidates':len(result['remove_snapshot_ids']),
                           'retained':len(result['retained_snapshot_ids']),
                           'protected':len(result['protected_snapshot_ids']),
+                          'protected_unknown_hourly_points':result.get('protected_unknown_hourly_points',0),
+                          'inventory_stable_for_admission':stable,
                           'fresh_fenced_replan_required_before_apply':True}))
 
 if __name__=='__main__':

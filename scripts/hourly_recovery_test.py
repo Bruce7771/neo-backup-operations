@@ -72,5 +72,27 @@ class DeriveTests(unittest.TestCase):
     def test_unknown_parent_rejected(self):
         data=self.fixture();k=('e'*64,'/fixture/hourly/postgres-archive-delivery.json');obj=json.loads(data[-1][k]);obj['wal_snapshot']='f'*64;data[-1][k]=json.dumps(obj).encode()
         with self.assertRaisesRegex(ValueError,'Unknown hourly PITR parent'):self.invoke(data)
+    def unknown_fixture(self):
+        data=self.fixture();inventory,plans,policy,external,restored,blobs=data
+        raw=b'[{"fixture":"unclassified"}]';blobs['b'*64,'/fixture/hourly/manifest.json']=raw
+        external.clear();policy['protected_unknown_hourly']=[dict(child_snapshot='b'*64,kind='protected-unknown',
+            source='reviewed-external-policy',evidence_sha256=hashlib.sha256(raw).hexdigest(),
+            reason='ARCHIVE_CAPTURE_SCOPE_UNDECLARED',hold_verified=True,restore_coverage='unknown')]
+        policy['unknown_recovery_hold_mode']='hold-all-authorized-recovery-roots'
+        held=next(row for row in plans[0][0]['keep']if row['id']=='b'*64)
+        plans[0][0]['keep'].remove(held);plans[0][0]['remove'].append(held)
+        return data
+    def test_unknown_held_without_false_recovery_and_all_roots_kept(self):
+        edges,parents,plans=self.invoke(self.unknown_fixture())
+        self.assertTrue({'a'*64,'b'*64,'c'*64,'d'*64}<=parents)
+        unknown=next(edge for edge in edges if edge['child_snapshot']=='b'*64)
+        self.assertEqual(unknown['restore_coverage'],'unknown');self.assertNotIn('verified',unknown)
+        self.assertEqual(plans[0][0]['remove'],[])
+    def test_unknown_manifest_hash_changed_rejected(self):
+        data=self.unknown_fixture();data[-1]['b'*64,'/fixture/hourly/manifest.json']=b'changed'
+        with self.assertRaisesRegex(ValueError,'fingerprint'):self.invoke(data)
+    def test_unknown_cannot_invent_restore_coverage(self):
+        data=self.unknown_fixture();data[2]['protected_unknown_hourly'][0]['verified']=True
+        with self.assertRaisesRegex(ValueError,'invent'):self.invoke(data)
 
 if __name__=='__main__':unittest.main()

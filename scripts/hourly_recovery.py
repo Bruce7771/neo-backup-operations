@@ -31,10 +31,44 @@ def derive(inventory,plans,policy,overrides,restored,dump):
     def authorized(row,kind):
         s=scopes[kind]
         return row.get('hostname')==s['host'] and s['tag'] in row.get('tags',[]) and set(row.get('paths',[]))==set(s['paths'])
-    removed={r['id'] for plan in plans for group in plan for r in group.get('remove') or []}
+    unknown=policy.get('protected_unknown_hourly',[])
+    require(isinstance(unknown,list)and len(unknown)<=64,'Invalid protected UNKNOWN inventory')
+    unknown_ids=[edge.get('child_snapshot')for edge in unknown]
+    require(len(unknown_ids)==len(set(unknown_ids))and not set(unknown_ids)&set(override),'Conflicting UNKNOWN evidence')
+    holds=set()
+    if unknown:
+        require(policy.get('unknown_recovery_hold_mode')=='hold-all-authorized-recovery-roots',
+                'UNKNOWN producer scopes require conservative recovery-root holds')
+        for edge in unknown:
+            child=edge.get('child_snapshot')
+            require(isinstance(child,str)and HEX.fullmatch(child)and child in rows
+                    and authorized(rows[child],'hourly'),'UNKNOWN point outside reviewed hourly inventory')
+            require(edge.get('kind')=='protected-unknown'and edge.get('source')=='reviewed-external-policy'
+                    and edge.get('reason')=='ARCHIVE_CAPTURE_SCOPE_UNDECLARED'
+                    and edge.get('hold_verified')is True and edge.get('restore_coverage')=='unknown'
+                    and HEX.fullmatch(edge.get('evidence_sha256',''))is not None,
+                    'UNKNOWN hold cannot claim legacy or verified recovery')
+            require(not any(k in edge for k in('wal_snapshot','restore_point','wal_segment','postgres_recovery_included','verified')),
+                    'UNKNOWN hold must not invent a recovery classification')
+            override[child]=copy.deepcopy(edge)
+        holds={sid for sid,row in rows.items()if authorized(row,'daily')or authorized(row,'pitr')}
+        for row in inventory:
+            for scope in policy.get('configuration_scopes',[]):
+                if row.get('hostname')==scope['host']and scope['tag']in row.get('tags',[])and row.get('paths')==scope['paths']:
+                    holds.add(row['id'])
+        holds.update(unknown_ids)
+    # A hold is applied before choosing retained children: a future age policy
+    # must not silently remove UNKNOWN points instead of classifying them.
+    working=copy.deepcopy(plans)
+    for plan in working:
+        for group in plan:
+            moved=[r for r in group.get('remove')or[]if r['id']in holds]
+            group['remove']=[r for r in group.get('remove')or[]if r['id']not in holds]
+            group['keep']=list(group.get('keep')or[])+moved
+    removed={r['id'] for plan in working for group in plan for r in group.get('remove') or []}
     retained=set(rows)-removed
     children=sorted(sid for sid in retained if authorized(rows[sid],'hourly'))
-    edges=[];parents=set();wal_checks={};base_hashes={}
+    edges=[];parents=set(holds);wal_checks={};base_hashes={}
     def data(sid,path,maximum=1024*1024):
         raw=dump(sid,path,maximum);require(isinstance(raw,bytes) and len(raw)<=maximum,'Oversize archive metadata')
         return raw,json.loads(raw)
@@ -48,6 +82,9 @@ def derive(inventory,plans,policy,overrides,restored,dump):
     for sid in children:
         if sid in override:
             edge=copy.deepcopy(override[sid])
+            if edge.get('kind')=='protected-unknown':
+                raw=dump(sid,scopes['hourly']['paths'][0].rstrip('/')+'/manifest.json',4*1024*1024)
+                require(hashlib.sha256(raw).hexdigest()==edge['evidence_sha256'],'UNKNOWN immutable manifest fingerprint changed')
         else:
             root=scopes['hourly']['paths'][0].rstrip('/')
             capture_raw,capture=data(sid,root+'/capture-result.json')
@@ -87,7 +124,7 @@ def derive(inventory,plans,policy,overrides,restored,dump):
             parent=edge.get('wal_snapshot')
             require(parent in rows and authorized(rows[parent],'pitr'),'External hourly parent outside authorized PITR scope')
             parents.add(parent)
-    updated=copy.deepcopy(plans)
+    updated=working
     for plan in updated:
         for group in plan:
             moved=[r for r in group.get('remove') or [] if r['id'] in parents]
