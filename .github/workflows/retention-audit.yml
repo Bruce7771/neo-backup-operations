@@ -3,8 +3,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '11 4 * * 1'
-    # Temporary real schedule probe; remove after observed run or 2026-11-13 19:55 UTC.
-    - cron: '55 18 13 11 *'
 permissions:
   contents: read
 concurrency:
@@ -17,9 +15,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Bound temporary schedule probe to its reviewed UTC date
-        if: github.event_name == 'schedule' && github.event.schedule == '55 18 13 11 *'
-        run: test "$(date -u +%F)" = '2026-11-13'
       - name: Load this exact reviewed operational commit
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
