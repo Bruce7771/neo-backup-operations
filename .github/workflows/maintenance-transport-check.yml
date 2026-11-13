@@ -1,0 +1,48 @@
+name: Restricted backup maintenance transport check
+on:
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: backup-maintenance-transport-check
+  cancel-in-progress: false
+jobs:
+  transport:
+    if: github.repository == 'Bruce7771/neo-backup-operations' && github.ref == 'refs/heads/main'
+    environment: NEO_BACKUP_MAINTENANCE
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Verify status access and rejection of a general command
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.NEO_MAINTENANCE_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.NEO_MAINTENANCE_SSH_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$SSH_PRIVATE_KEY" && test -n "$SSH_KNOWN_HOSTS"
+          work=$(mktemp -d "$RUNNER_TEMP/backup-transport.XXXXXXXX")
+          trap 'rm -rf -- "$work"' EXIT
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$work/key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$work/known_hosts"
+          unset SSH_PRIVATE_KEY SSH_KNOWN_HOSTS
+          args=(-T -F /dev/null -o BatchMode=yes -o ConnectTimeout=10
+                -o IdentitiesOnly=yes -o ClearAllForwardings=yes
+                -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$work/known_hosts"
+                -i "$work/key" root@2.24.129.173)
+          ssh "${args[@]}" status > "$work/status.json" 2> "$work/status.error"
+          if ssh "${args[@]}" id > "$work/denied.out" 2> "$work/denied.error"; then
+            echo '::error::Unexpected general-command access'
+            exit 1
+          else
+            test "$?" = 2
+          fi
+          python3 - "$work/status.json" <<'PY'
+          import json,sys
+          state=json.load(open(sys.argv[1]))
+          assert 'lease' not in state
+          assert ('fenced' in state and state['fenced'] is False) or state.get('phase') in ('held','released','expired-requires-reconciliation','acquiring')
+          print(json.dumps({'restricted_status_access':True,'general_command_rejected':True,
+            'fence_acquired_by_this_check':False,'backup_or_application_mutation':False}))
+          PY
+      # This job never acquires a fence, reads databases, prunes B2 or uploads artifacts.
