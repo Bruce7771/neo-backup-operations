@@ -76,6 +76,15 @@ def validate_hourly_recovery(retained, eligible, protected, restored, evidence, 
                     not any(k in edge for k in ('wal_snapshot','restore_point','wal_segment')),
                     'SQLite-only evidence must not claim PostgreSQL recovery')
             continue
+        if edge.get('kind')=='selfcontained-pg-named-point':
+            require(edge.get('external_parent_dependency')is None and 'wal_snapshot'not in edge
+                    and edge.get('postgres_recovery_included')is True and edge.get('metadata_verified')is True,
+                    'Self-contained hourly point cannot carry an external parent')
+            require(re.fullmatch('neo_hourly_[0-9]+_[0-9a-f]{8}',edge.get('restore_point',''))is not None
+                    and re.fullmatch('[0-9A-F]{24}',edge.get('wal_segment',''))is not None
+                    and HEX.fullmatch(edge.get('base_manifest_sha256',''))is not None,
+                    'Self-contained exact target metadata missing')
+            continue
         require(edge.get('kind')=='pitr-named-point', 'Unknown hourly recovery format; refuse retention')
         parent=edge.get('wal_snapshot')
         require(isinstance(parent,str) and parent in retained and parent in protected and

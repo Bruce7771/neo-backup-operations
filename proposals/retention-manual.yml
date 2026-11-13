@@ -42,6 +42,7 @@ jobs:
         run: |
           python3 scripts/retention-plan.py --self-test
           python3 scripts/hourly_recovery_test.py
+          python3 scripts/hourly_selfcontained_v3_test.py
           python3 scripts/asof-recovery-hold-test.py
           python3 proposals/writer-status-test.py
           python3 proposals/external-writer-test.py

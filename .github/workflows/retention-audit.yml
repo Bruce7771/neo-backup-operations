@@ -25,6 +25,7 @@ jobs:
         run: |
           python3 scripts/retention-plan.py --self-test
           python3 scripts/hourly_recovery_test.py
+          python3 scripts/hourly_selfcontained_v3_test.py
       - name: Install checksum-pinned restic
         shell: bash
         run: |

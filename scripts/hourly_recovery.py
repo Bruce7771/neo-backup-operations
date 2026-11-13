@@ -7,6 +7,7 @@ import io
 import json
 import re
 from asof_recovery_hold import fixed_hold
+from hourly_selfcontained_v3 import derive_v3
 
 HEX=re.compile(r'^[0-9a-f]{64}$')
 
@@ -97,6 +98,10 @@ def derive(inventory,plans,policy,overrides,restored,dump):
                     and capture.get('postgres_marker_recorded') is True,'Unknown hourly format requires reviewed override')
             delivery_raw,delivery=data(sid,root+'/postgres-archive-delivery.json')
             marker_raw,marker=data(sid,root+'/postgres-point.private.json')
+            if delivery.get('schema')==3:
+                edge=derive_v3(sid,root,capture_raw,delivery_raw,marker_raw,accepted_bases,dump)
+                edges.append(edge)
+                continue
             parent=delivery.get('wal_snapshot');segment=delivery.get('wal_segment');name=delivery.get('marker_restore_point')
             require(isinstance(parent,str) and HEX.fullmatch(parent) and parent in rows and authorized(rows[parent],'pitr'),'Unknown hourly PITR parent')
             require(isinstance(segment,str) and re.fullmatch('[0-9A-F]{24}',segment) and isinstance(name,str)
