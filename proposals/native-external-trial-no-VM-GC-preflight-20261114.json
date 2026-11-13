@@ -1,0 +1,1 @@
+{"schema": 1, "scope": "fresh-readonly-VM-GC-scheduling-check", "checked_known_Neo_timer_metadata": 8, "registered_GC_timer_units": [], "cron_GC_command_match_count": 0, "no_registered_VM_GC_observed": true, "units_stopped_or_reset": false, "source_payloads_read": false, "one_preauth_failure_before_success": true}

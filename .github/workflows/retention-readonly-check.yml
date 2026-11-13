@@ -1,6 +1,15 @@
 name: Independent retention plan and component restore
 on:
   workflow_dispatch:
+    inputs:
+      native_trial:
+        description: 'One reviewed serialized readonly native-catalog trial'
+        type: boolean
+        default: false
+      reviewed_sha:
+        description: 'Exact reviewed main commit; required only for native_trial'
+        type: string
+        default: ''
 permissions:
   contents: read
 concurrency:
@@ -43,6 +52,7 @@ jobs:
           echo "$RUNNER_TEMP/restic-bin" >> "$GITHUB_PATH"
           rm -- "$RUNNER_TEMP/restic.bz2"
       - name: Read-only plan, integrity and limited restore without backup pause
+        if: ${{ !inputs.native_trial }}
         env:
           RESTIC_REPOSITORY: ${{ secrets.NEO_RESTIC_REPOSITORY }}
           AWS_DEFAULT_REGION: ${{ vars.NEO_B2_REGION }}
@@ -56,3 +66,24 @@ jobs:
           NEO_HOURLY_RECOVERY_JSON: ${{ secrets.NEO_RETENTION_HOURLY_RECOVERY_JSON }}
         run: python3 scripts/retention-readonly-check.py
       # Audit key only; no SSH/fence, maintenance key, cron, artifact or deletion.
+      - name: Test inactive native-catalog integration
+        if: ${{ inputs.native_trial }}
+        run: python3 proposals/native-hourly-integration-test.py
+      - name: One explicit serialized readonly native-catalog trial
+        if: ${{ inputs.native_trial }}
+        env:
+          NEO_EXTERNAL_READER_MODE: github-serialized-readonly-native-trial
+          NEO_REVIEWED_TRIAL_COMMIT: ${{ inputs.reviewed_sha }}
+          RESTIC_REPOSITORY: ${{ secrets.NEO_RESTIC_REPOSITORY }}
+          AWS_DEFAULT_REGION: ${{ vars.NEO_B2_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.NEO_B2_AUDIT_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.NEO_B2_AUDIT_KEY }}
+          NEO_RESTIC_PASSWORD: ${{ secrets.NEO_RESTIC_PASSWORD }}
+          NEO_POLICY_JSON: ${{ secrets.NEO_RETENTION_POLICY_JSON }}
+          NEO_PROTECTED_JSON: ${{ secrets.NEO_RETENTION_PROTECTED_JSON }}
+          NEO_RESTORED_JSON: ${{ secrets.NEO_RETENTION_RESTORED_JSON }}
+          NEO_DEPENDENCIES_JSON: ${{ secrets.NEO_RETENTION_DEPENDENCIES_JSON }}
+          NEO_HOURLY_RECOVERY_JSON: ${{ secrets.NEO_RETENTION_HOURLY_RECOVERY_JSON }}
+        run: python3 proposals/run-native-external-trial.proposed.py
+      # Native trial: audit3 only, SAME exclusive GHA group, explicit mode;
+      # no SSH, maintenance/master credential, artifact/cache, cleanup or apply.
