@@ -120,6 +120,20 @@ def main():
                 raise ValueError('Candidate export requires a new private runner-temporary file')
             destination.write_text(json.dumps(result))
             destination.chmod(0o600)
+        bundle_output=os.environ.get('NEO_RETENTION_VALIDATION_BUNDLE_OUTPUT')
+        if bundle_output:
+            destination=Path(bundle_output);runner=Path(os.environ['RUNNER_TEMP']).resolve()
+            parent=destination.parent.resolve()
+            if (not parent.is_relative_to(runner)or parent==runner or parent.stat().st_mode&0o777!=0o700
+                or destination.exists()or destination.is_symlink()):
+                raise ValueError('Validation bundle requires a new private runner-temporary file')
+            bundle={'schema':1,'validated_epoch':int(time.time()),'policy':policy,
+                'inventory':json.loads(inventory),'plans':[json.loads(p.read_text())for p in plan_paths],
+                'protected':json.loads((work/'protected.json').read_text()),
+                'restored':json.loads((work/'restored.json').read_text()),
+                'dependencies':json.loads((work/'dependencies.json').read_text()),
+                'hourly_recovery':edge_inventory,'candidate':result}
+            destination.write_text(json.dumps(bundle));destination.chmod(0o600)
         print(json.dumps({'candidate_only':True,'deletion_performed':False,
                           'remove_candidates':len(result['remove_snapshot_ids']),
                           'retained':len(result['retained_snapshot_ids']),

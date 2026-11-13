@@ -1,5 +1,11 @@
 # Prepared manual maintenance, not activated
 
+**Historical prototype notes below.** The current unregistered native-lock
+coordinator and fixed AS-OF proposal are documented in
+[ASOF-NATIVE-RETENTION-STAGE.md](ASOF-NATIVE-RETENTION-STAGE.md). They supersede
+the old server-fence sequence and old candidate-only prototype entry; neither
+proposal is a deployed mutation workflow.
+
 The proposed workflow lives at `proposals/retention-manual.yml`, **outside**
 `.github/workflows`, so GitHub does not register it at all. It is manual-only,
 default `plan`, with an unset review kill switch. It adds no scheduled mutation, billing change, paid runner or external

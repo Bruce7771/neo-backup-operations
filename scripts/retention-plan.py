@@ -89,7 +89,7 @@ def validate_hourly_recovery(retained, eligible, protected, restored, evidence, 
     return evidence
 
 
-def build(inventory, plans, protected, restored, dependencies=None, hourly_recovery=None):
+def build(inventory, plans, protected, restored, dependencies=None, hourly_recovery=None, unknown_hold_roots=None):
     require(isinstance(inventory, list), "Invalid restic snapshot inventory")
     all_ids = ids([row["id"] for row in inventory])
     protected = ids(protected)
@@ -159,7 +159,8 @@ def build(inventory, plans, protected, restored, dependencies=None, hourly_recov
     for child in config_ids:verify_ancestry(child,set())
     hourly_host=next(host for host,(tag,_) in SCOPES.items() if tag=='neo-hourly-files')
     pitr_host=next(host for host,(tag,_) in SCOPES.items() if tag=='neo-main-pitr')
-    hold_roots={sid for sid,host in eligible.items()if host in(pitr_host,FULL_MAIN_HOST)}|config_ids
+    hold_roots=({sid for sid,host in eligible.items()if host in(pitr_host,FULL_MAIN_HOST)}|config_ids
+                if unknown_hold_roots is None else set(unknown_hold_roots))
     hourly_recovery=validate_hourly_recovery(all_ids-remove,eligible,protected,restored,
                                              hourly_recovery,hourly_host,pitr_host,hold_roots)
     for host in set(eligible.values()):
@@ -376,10 +377,15 @@ def main():
     CONFIG_SCOPES={(r['host'],r['tag']):r['paths'][0] for r in config_rows}
     require(len(CONFIG_SCOPES)==len(config_rows), 'Duplicate configuration scope')
     FULL_MAIN_HOST=next(r['host'] for r in scope_rows if r['kind']=='daily')
-    result = build(read(args.inventory), [read(p) for p in args.plan],
+    inventory=read(args.inventory)
+    unknown_hold_roots=None
+    if policy.get('unknown_recovery_hold_mode')=='reviewed-as-of-immutable-root-set':
+        from asof_recovery_hold import fixed_hold
+        unknown_hold_roots=fixed_hold(inventory,policy)
+    result = build(inventory, [read(p) for p in args.plan],
                    read(args.protected), read(args.restore_evidence),
                    read(args.dependencies) if args.dependencies else [],
-                   read(args.hourly_recovery) if args.hourly_recovery else None)
+                   read(args.hourly_recovery) if args.hourly_recovery else None,unknown_hold_roots)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print("Candidate validated; no deletion executed")
 

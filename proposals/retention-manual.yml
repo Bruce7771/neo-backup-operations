@@ -29,7 +29,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && vars.NEO_BACKUP_MANUAL_REVIEWED == 'true' && github.repository == 'Bruce7771/neo-backup-operations' && github.ref == 'refs/heads/main'
     environment: NEO_BACKUP_MAINTENANCE
     runs-on: ubuntu-24.04
-    # Pre-plan + graceful fence acquisition + 300s lease + finally/release.
+    # Pre-plan + bounded logical admission/native locks + readonly verification.
     timeout-minutes: 15
     steps:
       - name: Load exact reviewed operations commit
@@ -42,7 +42,11 @@ jobs:
         run: |
           python3 scripts/retention-plan.py --self-test
           python3 scripts/hourly_recovery_test.py
-          python3 scripts/retention-manual-test.py
+          python3 scripts/asof-recovery-hold-test.py
+          python3 proposals/writer-status-test.py
+          python3 proposals/external-writer-test.py
+          python3 proposals/lease-admission-test.py
+          python3 proposals/coordinator-test.py
       - name: Install checksum-pinned restic
         shell: bash
         run: |
@@ -57,6 +61,8 @@ jobs:
           chmod 0700 "$RUNNER_TEMP/restic-bin/restic"
           echo "$RUNNER_TEMP/restic-bin" >> "$GITHUB_PATH"
           rm -- "$RUNNER_TEMP/restic.bz2"
+      - name: Prove native lock and retained restore on local synthetic data
+        run: python3 proposals/native-lock-rehearsal.py
       - name: Private plan or gated manual maintenance
         env:
           REQUEST_MODE: ${{ inputs.mode }}
@@ -73,7 +79,7 @@ jobs:
           NEO_RESTORED_JSON: ${{ secrets.NEO_RETENTION_RESTORED_JSON }}
           NEO_DEPENDENCIES_JSON: ${{ secrets.NEO_RETENTION_DEPENDENCIES_JSON }}
           NEO_HOURLY_RECOVERY_JSON: ${{ secrets.NEO_RETENTION_HOURLY_RECOVERY_JSON }}
-          NEO_MAINTENANCE_SSH_KEY: ${{ secrets.NEO_MAINTENANCE_SSH_KEY }}
+          NEO_MAINTENANCE_OBSERVER_SSH_KEY: ${{ secrets.NEO_MAINTENANCE_OBSERVER_SSH_KEY }}
           NEO_MAINTENANCE_SSH_KNOWN_HOSTS: ${{ secrets.NEO_MAINTENANCE_SSH_KNOWN_HOSTS }}
           NEO_BACKUP_APPLY_ENABLED: ${{ vars.NEO_BACKUP_APPLY_ENABLED }}
           NEO_REPOSITORY_WIDE_PRUNE_REVIEWED: ${{ vars.NEO_REPOSITORY_WIDE_PRUNE_REVIEWED }}
@@ -83,5 +89,5 @@ jobs:
           umask 077
           args=(--mode "$REQUEST_MODE" --expected-digest "$EXPECTED_DIGEST" --maximum-removals "$MAXIMUM_REMOVALS")
           [[ "$REQUEST_PRUNE" != true ]] || args+=(--prune)
-          python3 scripts/retention-manual.py "${args[@]}"
+          python3 proposals/retention-coordinator.py "${args[@]}"
       # No artifact upload, no caches, no cron, no raw B2 version purge.

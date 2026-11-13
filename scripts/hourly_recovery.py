@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import re
+from asof_recovery_hold import fixed_hold
 
 HEX=re.compile(r'^[0-9a-f]{64}$')
 
@@ -37,7 +38,7 @@ def derive(inventory,plans,policy,overrides,restored,dump):
     require(len(unknown_ids)==len(set(unknown_ids))and not set(unknown_ids)&set(override),'Conflicting UNKNOWN evidence')
     holds=set()
     if unknown:
-        require(policy.get('unknown_recovery_hold_mode')=='hold-all-authorized-recovery-roots',
+        require(policy.get('unknown_recovery_hold_mode')in('hold-all-authorized-recovery-roots','reviewed-as-of-immutable-root-set'),
                 'UNKNOWN producer scopes require conservative recovery-root holds')
         for edge in unknown:
             child=edge.get('child_snapshot')
@@ -51,11 +52,15 @@ def derive(inventory,plans,policy,overrides,restored,dump):
             require(not any(k in edge for k in('wal_snapshot','restore_point','wal_segment','postgres_recovery_included','verified')),
                     'UNKNOWN hold must not invent a recovery classification')
             override[child]=copy.deepcopy(edge)
-        holds={sid for sid,row in rows.items()if authorized(row,'daily')or authorized(row,'pitr')}
-        for row in inventory:
-            for scope in policy.get('configuration_scopes',[]):
-                if row.get('hostname')==scope['host']and scope['tag']in row.get('tags',[])and row.get('paths')==scope['paths']:
-                    holds.add(row['id'])
+        if policy.get('unknown_recovery_hold_mode')=='reviewed-as-of-immutable-root-set':
+            holds=fixed_hold(inventory,policy)
+        else:
+            # Transitional read-only/no-op mode, not permanent 30/3 policy.
+            holds={sid for sid,row in rows.items()if authorized(row,'daily')or authorized(row,'pitr')}
+            for row in inventory:
+                for scope in policy.get('configuration_scopes',[]):
+                    if row.get('hostname')==scope['host']and scope['tag']in row.get('tags',[])and row.get('paths')==scope['paths']:
+                        holds.add(row['id'])
         holds.update(unknown_ids)
     # A hold is applied before choosing retained children: a future age policy
     # must not silently remove UNKNOWN points instead of classifying them.
