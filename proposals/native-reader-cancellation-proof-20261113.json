@@ -1,0 +1,16 @@
+{
+  "scope": "local-native-reader-cancellation-only",
+  "date_utc": "2026-11-13",
+  "restic_version": "0.16.4",
+  "sigint_reaped_and_native_lock_cleaned_seconds": 0.470476,
+  "sigint_required_forced_kill": false,
+  "sigkill_left_exact_own_lock": true,
+  "after_reap_single_own_pid_hostname_record_verified": true,
+  "native_unlock_cleaned_only_remaining_local_lock_seconds": 1.922149,
+  "remove_all_used": false,
+  "unknown_lock_cleanup_authorized": false,
+  "prune_midoperation_cancellation_proved": false,
+  "cloud_calls": 0,
+  "real_repository_mutations": 0,
+  "runtime_installed": false
+}
