@@ -1,0 +1,21 @@
+{
+  "scope": "local-native-reader-cooperation-only",
+  "date_utc": "2026-11-13",
+  "restic_version": "0.16.4",
+  "default_active_dump_native_locks": 1,
+  "explicit_no_lock_active_dump_native_locks": 0,
+  "lock_baseline_between_cases": 0,
+  "active_no_lock_reader_denied_gc": true,
+  "active_reader_completed_sha256_match": true,
+  "gc_refusal_seconds": 0.000023,
+  "future_writer_waited_then_admitted": true,
+  "native_local_forget_prune_check_seconds": 2.052647,
+  "native_retry_lock_zero_supported": true,
+  "retained_actual_local_restore_sha256_match": true,
+  "controller_exit_released_ex": true,
+  "cloud_calls": 0,
+  "real_repository_mutations": 0,
+  "runtime_installed": false,
+  "nonzero_guard_removed": false,
+  "limitation": "Cooperative local protocol fixture; no production GC duration, cross-host enrollment, or deletion authority proved."
+}
