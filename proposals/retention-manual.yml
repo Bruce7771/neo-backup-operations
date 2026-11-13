@@ -1,0 +1,87 @@
+name: Proposed bounded manual backup maintenance
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [plan, apply]
+        default: plan
+      expected_candidate_digest:
+        description: Exact reviewed digest from a prior private plan (no IDs)
+        type: string
+        default: ''
+      maximum_removals:
+        description: Explicit bound 0..10; zero never permits deletion
+        type: string
+        default: '0'
+      repository_wide_prune:
+        description: Separate review required; native prune has no host/tag filter
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: backup-repository-maintenance
+  cancel-in-progress: false
+jobs:
+  manual:
+    # Deliberately off until code/protections/credentials and admission are reviewed.
+    if: github.event_name == 'workflow_dispatch' && vars.NEO_BACKUP_MANUAL_REVIEWED == 'true' && github.repository == 'Bruce7771/neo-backup-operations' && github.ref == 'refs/heads/main'
+    environment: NEO_BACKUP_MAINTENANCE
+    runs-on: ubuntu-24.04
+    # Pre-plan + graceful fence acquisition + 300s lease + finally/release.
+    timeout-minutes: 15
+    steps:
+      - name: Load exact reviewed operations commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Test synthetic dependency and admission boundaries
+        run: |
+          python3 scripts/retention-plan.py --self-test
+          python3 scripts/hourly_recovery_test.py
+          python3 scripts/retention-manual-test.py
+      - name: Install checksum-pinned restic
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          curl --fail --silent --show-error --location --max-time 45 \
+            https://github.com/restic/restic/releases/download/v0.16.4/restic_0.16.4_linux_amd64.bz2 \
+            -o "$RUNNER_TEMP/restic.bz2"
+          printf '%s  %s\n' 3d4d43c169a9e28ea76303b1e8b810f0dcede7478555fdaa8959971ad499e324 "$RUNNER_TEMP/restic.bz2" | sha256sum -c -
+          install -d -m 0700 "$RUNNER_TEMP/restic-bin"
+          bzip2 -dc "$RUNNER_TEMP/restic.bz2" > "$RUNNER_TEMP/restic-bin/restic"
+          chmod 0700 "$RUNNER_TEMP/restic-bin/restic"
+          echo "$RUNNER_TEMP/restic-bin" >> "$GITHUB_PATH"
+          rm -- "$RUNNER_TEMP/restic.bz2"
+      - name: Private plan or gated manual maintenance
+        env:
+          REQUEST_MODE: ${{ inputs.mode }}
+          EXPECTED_DIGEST: ${{ inputs.expected_candidate_digest }}
+          MAXIMUM_REMOVALS: ${{ inputs.maximum_removals }}
+          REQUEST_PRUNE: ${{ inputs.repository_wide_prune }}
+          RESTIC_REPOSITORY: ${{ secrets.NEO_RESTIC_REPOSITORY }}
+          AWS_DEFAULT_REGION: ${{ vars.NEO_B2_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ inputs.mode == 'apply' && secrets.NEO_B2_MAINTENANCE_KEY_ID || secrets.NEO_B2_AUDIT_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ inputs.mode == 'apply' && secrets.NEO_B2_MAINTENANCE_KEY || secrets.NEO_B2_AUDIT_KEY }}
+          NEO_RESTIC_PASSWORD: ${{ secrets.NEO_RESTIC_PASSWORD }}
+          NEO_POLICY_JSON: ${{ secrets.NEO_RETENTION_POLICY_JSON }}
+          NEO_PROTECTED_JSON: ${{ secrets.NEO_RETENTION_PROTECTED_JSON }}
+          NEO_RESTORED_JSON: ${{ secrets.NEO_RETENTION_RESTORED_JSON }}
+          NEO_DEPENDENCIES_JSON: ${{ secrets.NEO_RETENTION_DEPENDENCIES_JSON }}
+          NEO_HOURLY_RECOVERY_JSON: ${{ secrets.NEO_RETENTION_HOURLY_RECOVERY_JSON }}
+          NEO_MAINTENANCE_SSH_KEY: ${{ secrets.NEO_MAINTENANCE_SSH_KEY }}
+          NEO_MAINTENANCE_SSH_KNOWN_HOSTS: ${{ secrets.NEO_MAINTENANCE_SSH_KNOWN_HOSTS }}
+          NEO_BACKUP_APPLY_ENABLED: ${{ vars.NEO_BACKUP_APPLY_ENABLED }}
+          NEO_REPOSITORY_WIDE_PRUNE_REVIEWED: ${{ vars.NEO_REPOSITORY_WIDE_PRUNE_REVIEWED }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          args=(--mode "$REQUEST_MODE" --expected-digest "$EXPECTED_DIGEST" --maximum-removals "$MAXIMUM_REMOVALS")
+          [[ "$REQUEST_PRUNE" != true ]] || args+=(--prune)
+          python3 scripts/retention-manual.py "${args[@]}"
+      # No artifact upload, no caches, no cron, no raw B2 version purge.

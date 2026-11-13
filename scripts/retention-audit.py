@@ -98,6 +98,19 @@ def main():
         result=json.loads((work/'candidate.json').read_text())
         if result.get('apply_ready') is not False:
             raise ValueError('Read-only planner must never authorize apply')
+        # Optional private handoff to the separate manual admission wrapper.
+        # This exports a read-only candidate, never a deletion authorization.
+        export=os.environ.get('NEO_RETENTION_CANDIDATE_OUTPUT')
+        if export:
+            destination=Path(export)
+            runner=Path(os.environ['RUNNER_TEMP']).resolve()
+            parent=destination.parent.resolve()
+            if (not parent.is_relative_to(runner) or parent==runner
+                or parent.stat().st_mode & 0o777 != 0o700 or destination.exists()
+                or destination.is_symlink()):
+                raise ValueError('Candidate export requires a new private runner-temporary file')
+            destination.write_text(json.dumps(result))
+            destination.chmod(0o600)
         print(json.dumps({'candidate_only':True,'deletion_performed':False,
                           'remove_candidates':len(result['remove_snapshot_ids']),
                           'retained':len(result['retained_snapshot_ids']),
