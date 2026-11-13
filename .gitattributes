@@ -1,10 +1,10 @@
 # Byte-pinned review-only operational candidates; preserve exact tested source bytes.
-proposals/native-admission-contract.py -text
-proposals/native-admission-contract-test.py -text
-proposals/native-reader-cancellation-test.py -text
-proposals/native-reader-four-source-candidate.py -text
-proposals/native-reader-four-source-candidate-test.py -text
-proposals/native-reader-eight-source-candidate.py -text
-proposals/native-reader-eight-source-candidate-test.py -text
-proposals/native-reader-eight-source-install.py -text
-proposals/native-reader-eight-source-install-test.py -text
+proposals/native-admission-contract.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+proposals/native-admission-contract-test.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+proposals/native-reader-cancellation-test.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+proposals/native-reader-four-source-candidate.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+proposals/native-reader-four-source-candidate-test.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+proposals/native-reader-eight-source-candidate.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+proposals/native-reader-eight-source-candidate-test.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+proposals/native-reader-eight-source-install.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+proposals/native-reader-eight-source-install-test.py -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
