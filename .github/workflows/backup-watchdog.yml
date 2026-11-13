@@ -1,0 +1,41 @@
+# Activated after verifying account-wide Actions budget $0 with hard stop.
+# No credentials; the repository variable remains an explicit kill switch.
+name: Neo independent backup watchdog
+on:
+  workflow_dispatch:
+    inputs:
+      simulate_outage:
+        description: Simulate an unreachable VPS to test failure notification
+        type: boolean
+        default: false
+  schedule:
+    - cron: '17 * * * *'
+permissions: {}
+jobs:
+  freshness:
+    if: vars.NEO_OFFSITE_MONITOR_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify backup freshness independently of the VPS
+        env:
+          HEALTH_URL: https://2.24.129.173/__neo_backup_health
+          SIMULATE_OUTAGE: ${{ github.event.inputs.simulate_outage || 'false' }}
+        run: |
+          python3 - <<'PY'
+          import json,os,sys,urllib.request
+          try:
+              url=('https://127.0.0.1:9/__neo_backup_health'
+                   if os.environ.get('SIMULATE_OUTAGE')=='true' else os.environ['HEALTH_URL'])
+              with urllib.request.urlopen(url,timeout=12) as r:
+                  body=r.read(4097)
+              assert len(body)<=4096
+              d=json.loads(body)
+              assert d['scope']=='main-neo-and-builder' and d['ok'] is True
+              assert 0<=d['daily_age_seconds']<=93600 and 0<=d['wal_age_seconds']<=900
+              assert 0<=d['retained_bytes']<160000000000
+              print('Neo backup freshness and storage thresholds are healthy')
+          except Exception:
+              print('::error::Neo backups are unavailable, stale or over the warning threshold',file=sys.stderr)
+              sys.exit(1)
+          PY

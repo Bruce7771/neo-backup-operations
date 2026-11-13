@@ -1,0 +1,24 @@
+# This public repository is operational code only.
+*.env
+*.key
+*.pem
+*.p12
+*.pfx
+*.dpapi
+*inventory*.json
+*snapshot*.json
+*protected*.json
+*restored*.json
+*dependencies*.json
+*.dump
+*.sql
+*.db
+*.sqlite*
+*.tar*
+*.zip
+*.png
+*.jpg
+__pycache__/
+private/
+work/
+.tmp/
