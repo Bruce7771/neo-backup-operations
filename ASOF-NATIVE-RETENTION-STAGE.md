@@ -1,5 +1,14 @@
 # Current prepared AS-OF and native-lock maintenance stage
 
+**CRITICAL OPEN: nonzero maintenance is hard-blocked in the coordinator before
+its first possible write.** A writer may finish publishing a new child after
+the second plan but before native `forget` obtains its lock. Fresh idle writer
+and lock observations do not prevent the old plan from deleting that child's
+parent. Another inventory read is not an atomic fix. Two regression cases
+demonstrate this race and require the unconditional block; no environment flag
+can bypass it. The zero-removal read-only path remains usable. The admission
+tests and native rehearsal below are not production deletion authority.
+
 The registered read-only plan/check/component-restore workflow is separate from
 this **unregistered** manual mutation proposal. Its zero-candidate result is a
 real no-op, not proof of expiration. GitHub cron is still not proven; a Google

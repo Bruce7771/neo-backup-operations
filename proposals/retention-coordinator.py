@@ -32,6 +32,12 @@ def require(ok,reason):
     if not ok:raise ValueError(reason)
 
 
+def require_atomic_publication_boundary():
+    # A new hourly child can commit after replan and before exclusive forget.
+    # Native forget locking alone does not close that external-DAG race.
+    raise ValueError('NONZERO DISABLED: atomic publication/replan/forget boundary is not established')
+
+
 def mutation_transition(before,after,approved):
     """No unapproved disappearance or changed immutable old record is allowed."""
     old={row['id']:row for row in before};new={row['id']:row for row in after}
@@ -87,6 +93,7 @@ def main():
             print(json.dumps({'result':'no-op-zero-candidates','deleted_snapshots':0,'prune_performed':False,
                 'writer_pause_performed':False,'repository_integrity_check':True,**checks}));return
         if args.mode=='plan':return
+        require_atomic_publication_boundary()
         require(env.get('NEO_BACKUP_APPLY_ENABLED')=='true','Manual apply switch closed')
         require(review==args.expected_digest,'Exact owner-reviewed removal/config digest required')
         require(0<len(candidate['remove_snapshot_ids'])<=args.maximum_removals<=10,'Explicit exact removal bound required')

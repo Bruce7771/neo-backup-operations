@@ -28,6 +28,12 @@ Logical snapshot expiration, pack pruning and permanent deletion of hidden B2 ve
 
 A separate **prepared manual-only** draft at `proposals/retention-manual.yml` is described in [ASOF-NATIVE-RETENTION-STAGE.md](ASOF-NATIVE-RETENTION-STAGE.md). It is outside `.github/workflows` and is not registered or activated. The new separate authority rebuilds the unchanged read-only planner's candidate, then requires exact owner digest, fixed historical holds and fresh source/external/native-lock evidence. It does not flip `apply_ready:false` or pause working backups. Zero candidates are a truthful no-op. Pure admission tests and an actual local synthetic native-lock rehearsal do not claim production expiration, installed observation transport or automatic retention scheduling.
 
+Nonzero execution is unconditionally blocked before its first possible write:
+the current observations and native command locks do not atomically cover a
+new child's publication between planning and `forget`. The regression proof
+and remaining condition are recorded in the stage document. Zero-removal
+read-only verification remains available; no deletion authority is claimed.
+
 Official references: [restic retention and locks](https://restic.readthedocs.io/en/stable/060_forget.html), [B2 application keys](https://www.backblaze.com/docs/cloud-storage-application-keys), [GitHub protected environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).
 
 ## Hourly PostgreSQL recovery dependencies

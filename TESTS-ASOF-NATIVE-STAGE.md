@@ -15,6 +15,12 @@ service/schedule change or DNS action occurred.
 | Exact native post-forget inventory transition / no service-fence commands | 5 |
 | **Total isolated cases** | **67** |
 
+Two additional publication/forget TOCTOU regression cases verify the concrete
+completed-new-child counterexample and the unconditional nonzero block before
+the first possible write. These checks do not establish atomic deletion
+authority. Nonzero execution remains disabled; the earlier 67 cases and native
+rehearsal are component evidence only.
+
 The final forced-command test initially lacked its `.sh` fixture in the remote
 temporary test harness. The missing fixture was included and all four affected
 groups passed; no application/source logic was changed to bypass a failure.

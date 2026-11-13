@@ -47,6 +47,7 @@ jobs:
           python3 proposals/external-writer-test.py
           python3 proposals/lease-admission-test.py
           python3 proposals/coordinator-test.py
+          python3 proposals/nonzero-toctou-regression-test.py
       - name: Install checksum-pinned restic
         shell: bash
         run: |
