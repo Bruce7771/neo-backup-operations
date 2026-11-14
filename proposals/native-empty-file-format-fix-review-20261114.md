@@ -1,0 +1,11 @@
+# Targeted native empty-file compatibility fix
+
+The first actual external trial43531246228 on08775b56 failed closed after the first four JSON files (617,507bytes,34.149s). Its original result is preserved, not reclassified as success. Its safe diagnostic did not expose the inner catalog message. A separate actual local restic0.16.4 inspection established a concrete validator bug: all1,100empty file nodes omit `size`. The old validator rejected that legitimate representation. This is not evidence of archive corruption.
+
+The NEW inactive-copy builder fixes only that format compatibility and bounded diagnostics. Missing size means0 only; None, bool, negative/string sizes or nonempty content with missing size remain rejected. Existing exact sealed origin checks, native hashes, source namespace, WAL/base/marker validation, scope and resource bounds are unchanged. Failure counters are retained in finally and the fixed catalog module/frame is allowed in safe diagnostics.
+
+The regression test is now portable: a fresh TemporaryDirectory, new tiny local repository, two empty synthetic files, pinned actual restic0.16.4, explicit dummy password and environment containing no inherited AWS/RESTIC/NEO/GITHUB credentials. It fails rather than skips if native prerequisites fail. Repository+fixture files are bounded below2MiB and cleaned only inside the owned temp directory. The old1,100-node proof remains historical evidence. Five regression tests pass; all12integration and8external-contract tests pass too.
+
+The launcher now chooses `build-native-empty-file-fix.proposed.py`. The ONLY workflow behavior delta adds this actual portable test after checksum-pinned restic installation, inside the existing native-only test step. Workflow SHA changes fromd144... to `0ccf6fcffc91b9aeea4b16f3072c1d106064d27f9696856b5818327d6b10b730`; the explicit external contract pin is refreshed accordingly. Same protected environment/main/manual restrictions, audit3-only keys, group/cancel=false, standard public runner, defaultfalse and existing cron remain unchanged. No working scripts or provider/application code is altered.
+
+Publication is separate from execution. No new cloud dispatch or activation is part of this fix. Root must review the resulting exact remote commit and use that SHA for any later single targeted read-only retry.

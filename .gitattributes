@@ -35,3 +35,7 @@ proposals/retention-safety-candidate-test.py -text
 proposals/retention-safety-candidate.py -text
 proposals/retention-safety-catalog-synthetic-proof-20261113.json -text
 proposals/run-native-external-trial.proposed.py -text
+proposals/build-native-empty-file-fix.proposed.py -text
+proposals/native-empty-file-format-fix-test.py -text
+proposals/native-empty-file-format-fix-review-20261114.md -text
+proposals/native-empty-file-format-fix-proof-20261114.json -text

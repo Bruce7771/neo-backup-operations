@@ -68,7 +68,9 @@ jobs:
       # Audit key only; no SSH/fence, maintenance key, cron, artifact or deletion.
       - name: Test inactive native-catalog integration
         if: ${{ inputs.native_trial }}
-        run: python3 proposals/native-hourly-integration-test.py
+        run: |
+          python3 proposals/native-hourly-integration-test.py
+          python3 proposals/native-empty-file-format-fix-test.py
       - name: One explicit serialized readonly native-catalog trial
         if: ${{ inputs.native_trial }}
         env:
