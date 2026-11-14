@@ -48,3 +48,6 @@ proposals/native-parallel-resource-proof-20261114.json -text
 proposals/current-ops-kit-closure.proposed.py -text
 proposals/build-current-ops-retention-engine.proposed.py -text
 proposals/current-ops-kit-closure-test.py -text
+proposals/staged-derive.proposed.py -text
+proposals/build-staged-retention-engine.proposed.py -text
+proposals/staged-derive-test.py -text
