@@ -39,3 +39,12 @@ proposals/build-native-empty-file-fix.proposed.py -text
 proposals/native-empty-file-format-fix-test.py -text
 proposals/native-empty-file-format-fix-review-20261114.md -text
 proposals/native-empty-file-format-fix-proof-20261114.json -text
+proposals/build-native-parallel-engine.proposed.py -text
+proposals/native-parallel-catalog.proposed.py -text
+proposals/native-parallel-transport.proposed.py -text
+proposals/native-parallel-engine-test.py -text
+proposals/native-parallel-resource-sample.py -text
+proposals/native-parallel-resource-proof-20261114.json -text
+proposals/current-ops-kit-closure.proposed.py -text
+proposals/build-current-ops-retention-engine.proposed.py -text
+proposals/current-ops-kit-closure-test.py -text
