@@ -1,7 +1,7 @@
 """Whole coordinator control-flow with exact deployed seven-field policy SHAPE.
 All external operations are injected offline; never credentials or B2 mutation.
 """
-import hashlib,importlib.util,json,os,pathlib,tempfile,types,unittest
+import hashlib,importlib.util,json,os,pathlib,sys,tempfile,types,unittest
 from unittest.mock import patch
 H=pathlib.Path(__file__).parent
 s=importlib.util.spec_from_file_location('candidate_actualshape',H/'publication-retention-coordinator.candidate.py');c=importlib.util.module_from_spec(s);s.loader.exec_module(c)
@@ -32,7 +32,7 @@ class WholeCoordinator(unittest.TestCase):
    def observe(repos,repo,run,fetch):self.assertEqual(repos,['Bruce7771/neo-backup-operations']);fetch('https://synthetic-not-network');return dict(complete=True,other_running_jobs=0)
    wiring=types.SimpleNamespace(ExistingSSH=RPC,load=lambda n,p:types.SimpleNamespace(fixed_hold=lambda*a:None),revalidate=lambda*a:candidate,coordinate=coordinate)
    modules={'candidate_external_observer':types.SimpleNamespace(observe=observe),'candidate_github_read':types.SimpleNamespace(GitHubRead=lambda token,repos:fetch),'candidate_bounded':types.SimpleNamespace(bounded=bounded),'candidate_access':types.SimpleNamespace(MAINTENANCE='synthetic',repository_target=lambda r:('bucket','endpoint','prefix'),authorize_pair=lambda*a:None),'candidate_wiring':wiring,'candidate_review':types.SimpleNamespace(removal_review_digest=lambda*a:'e'*64),'candidate_postcheck':types.SimpleNamespace(validate=lambda*a:None,restore=lambda*a:dict(component_restore_verified=True))}
-   with patch.dict(os.environ,env,clear=True),patch.object(c,'load',side_effect=lambda n,p:modules[n]):result=c.main(root,['--mode',mode])
+   with patch.dict(os.environ,env,clear=True),patch.object(c,'load',side_effect=lambda n,p:modules[n]),patch.object(c,'run_audit_child',side_effect=lambda engine,audit,timeout:bounded([sys.executable,str(engine/'retention-audit.py')],audit,timeout)):result=c.main(root,['--mode',mode])
    return result,events
  def test_PLAN_zero_and_nonzero_under_actual_seven_field_policy(self):
   for remove in (False,True):

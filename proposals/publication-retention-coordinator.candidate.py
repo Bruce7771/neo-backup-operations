@@ -5,6 +5,7 @@ Default PLAN. No prune, scheduler, service, key creation or workflow registratio
 Policy-apply is admission of an unchanged reviewed policy, not a planner flag flip.
 """
 import argparse
+import ast
 import hashlib
 import importlib.util
 import json
@@ -14,6 +15,7 @@ import re
 import secrets
 import signal
 import sys
+import subprocess
 import tempfile
 import time
 
@@ -146,6 +148,32 @@ def timed_external(action, seconds):
         if old_timer[0]: signal.setitimer(signal.ITIMER_REAL, *old_timer)
 
 
+def run_audit_child(engine, audit, timeout=4500):
+    """Existing bounded capture, forwarding only the existing strict diagnostic parser."""
+    source = ast.parse((Path(engine) / 'retention-readonly-check.py').read_text())
+    functions = [n for n in source.body if isinstance(n, ast.FunctionDef) and n.name == 'safe_audit_failure']
+    require(len(functions) == 1, 'Reviewed safe audit diagnostic parser required')
+    namespace = {'json': json}
+    exec(compile(ast.Module(body=functions, type_ignores=[]), 'reviewed-safe-audit-diagnostic', 'exec'), namespace)
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as errors:
+        process = subprocess.Popen([sys.executable, str(Path(engine) / 'retention-audit.py')], env=audit,
+            stdin=subprocess.DEVNULL, stdout=out, stderr=errors, start_new_session=True)
+        try:
+            process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGTERM)
+            try: process.communicate(timeout=2)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL); process.communicate(timeout=2)
+            raise Refused('audit-child-timeout-no-blind-unlock') from None
+        if process.returncode:
+            errors.seek(0); diagnostic = namespace['safe_audit_failure'](errors.read(16384))
+            if diagnostic is not None:
+                stats = diagnostic.get('metadata_stats', {})
+                if all(type(v) is int and 0 <= v <= 2**53-1 for v in stats.values()):
+                    print(json.dumps({'audit_safe_failure': diagnostic}), file=sys.stderr, flush=True)
+            raise Refused('audit-child-failed-inspect-safe-diagnostic')
+
 def main(engine, argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mode', choices=('plan', 'apply', 'policy-apply'), default='plan')
@@ -186,7 +214,7 @@ def main(engine, argv=None):
         audit['NEO_RETENTION_VALIDATION_BUNDLE_OUTPUT'] = str(bundle_path)
         audit['NEO_STAGED_JOB_START'] = repr(time.monotonic())
         # Engine is built by the same-job FAMILY builder. No SSH credential enters preplan.
-        bounded([sys.executable, str(Path(engine) / 'retention-audit.py')], audit, 4500)
+        run_audit_child(engine, audit, 4500)
         bundle = json.loads(bundle_path.read_text())
         planner = wiring.load('candidate_planner', Path(engine) / 'retention-plan.py')
         planner.SCOPES = {s['host']: (s['tag'], frozenset(s['paths'])) for s in policy['scopes']}

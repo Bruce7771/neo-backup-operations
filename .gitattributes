@@ -95,3 +95,6 @@ proposals/publication-maintenance-handoff-test.py -text
 proposals/publication-github-read.proposed.py -text
 proposals/publication-github-read-test.py -text
 proposals/publication-actual-policy-shape-test.py -text
+proposals/reviewed-composed-control.one-point-frozen.py -text
+proposals/reviewed-composed-control-two-point-test.py -text
+proposals/publication-audit-child-diagnostic-test.py -text

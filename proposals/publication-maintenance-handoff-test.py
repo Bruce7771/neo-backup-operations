@@ -7,7 +7,7 @@ class Handoff(unittest.TestCase):
   main=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='main')
   scope=next(n for n in main.body if isinstance(n,ast.With))
   start=next(i for i,n in enumerate(scope.body) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='audit' for t in n.targets))
-  stop=next(i for i,n in enumerate(scope.body[start:],start) if isinstance(n,ast.Expr) and isinstance(n.value,ast.Call) and isinstance(n.value.func,ast.Name) and n.value.func.id=='bounded')
+  stop=next(i for i,n in enumerate(scope.body[start:],start) if isinstance(n,ast.Expr) and isinstance(n.value,ast.Call) and isinstance(n.value.func,ast.Name) and n.value.func.id=='run_audit_child')
   with tempfile.TemporaryDirectory() as d:
    required=('NEO_POLICY_JSON','NEO_PROTECTED_JSON','NEO_RESTORED_JSON','NEO_DEPENDENCIES_JSON','NEO_HOURLY_RECOVERY_JSON')
    env={k:'{}' for k in required};env['NEO_RESTIC_PASSWORD']='SYNTHETIC'
