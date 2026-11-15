@@ -80,3 +80,6 @@ proposals/external-reader-contract.scheduled-audit.publication.py -text
 proposals/run-scheduled-retention-audit.proposed.py -text
 proposals/scheduled-audit-contract-test.py -text
 .github/workflows/retention-audit.yml -text
+.github/workflows/maintenance-transport-check.yml -text
+proposals/maintenance-transport-schema2.publication.yml -text
+proposals/maintenance-transport-schema2-test.py -text
