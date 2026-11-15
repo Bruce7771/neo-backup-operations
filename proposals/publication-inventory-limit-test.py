@@ -11,8 +11,15 @@ class Tests(unittest.TestCase):
    tree=ast.parse(source);run=next(n for n in tree.body if isinstance(n,ast.FunctionDef)and n.name=='run');self.assertEqual(run.args.defaults[0].value,45)
    new90=[n for n in ast.walk(tree)if isinstance(n,ast.Call)and isinstance(n.func,ast.Name)and n.func.id=='run'and len(n.args)==3 and isinstance(n.args[2],ast.Constant)and n.args[2].value==90];self.assertEqual(len(new90),2)
    self.assertEqual(source.count("['restic','--no-lock','forget','--dry-run'"),1)
-   budget=(engine/'staged_derive.py').read_text();self.assertIn('self.now()+120',budget);self.assertIn('self.job_end=self.start+4500',budget);self.assertIn('spawned+35',(engine/'native_parallel_transport.py').read_text())
+   budget=(engine/'staged_derive.py').read_text();self.assertIn('self.now()+300',budget);self.assertIn('self.job_end=self.start+4500',budget);self.assertIn('spawned+90',(engine/'native_parallel_transport.py').read_text())
    self.assertEqual((H.parent/'scripts/retention-audit.py').read_bytes(),original)
+ def test_actual_preplan_reserve_segment_and_global_limits(self):
+  with tempfile.TemporaryDirectory()as td:
+   engine=launcher.build_engine(H,pathlib.Path(td)/'engine');spec=importlib.util.spec_from_file_location('actual_reserve_budget',engine/'staged_derive.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);clock=[0];b=m.Budget(start=0,now=lambda:clock[0]);self.assertEqual(b.begin_child(),300);clock[0]=210;self.assertEqual(b.begin_child(),300);clock[0]=211;self.assertEqual(b.begin_child(),511);self.assertEqual(b.segments,2);self.assertEqual(b.metadata_end,3600);self.assertEqual(b.job_end,4500)
+   clock[0]=3300;b.segments=30;b.segment_end=3301
+   with self.assertRaises(ValueError):b.begin_child()
+   reader=(engine/'native_parallel_transport.py').read_text();self.assertIn('process_limit=4096',reader);self.assertIn('byte_limit=512*1024*1024',reader);self.assertIn('max_live=4',reader)
+   core=(H/'publication-coordinator-core.proposed.py').read_text();self.assertIn('deadline=start+116',core);self.assertIn('fresh_candidate(start+45)',core)
  def test_actual_run_phase_budget_still_clamps_requested90(self):
   with tempfile.TemporaryDirectory()as td:
    engine=launcher.build_engine(H,pathlib.Path(td)/'engine');tree=ast.parse((engine/'retention-audit.py').read_text());run=next(n for n in tree.body if isinstance(n,ast.FunctionDef)and n.name=='run');spec=importlib.util.spec_from_file_location('actual_inventory_budget',engine/'staged_derive.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)

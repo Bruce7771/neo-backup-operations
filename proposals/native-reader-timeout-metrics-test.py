@@ -1,4 +1,4 @@
-"""Advancing-clock tests only: unchanged 35s/process and parent deadlines."""
+"""Advancing-clock tests only: maintenance 90s/process clipped to unchanged fresh-tail parent deadline."""
 import ast,importlib.util,json,pathlib,subprocess,sys,tempfile,unittest
 from unittest.mock import patch
 H=pathlib.Path(__file__).parent
@@ -20,9 +20,11 @@ class Tests(unittest.TestCase):
   with patch.object(m.time,'monotonic',side_effect=lambda:clock[0]),patch.object(m,'external_command',side_effect=lambda a,e:a),self.assertRaises(subprocess.TimeoutExpired):reader.read(['cat','blob','SYNTHETIC-PRIVATE-ID'],1024)
   return reader.timeout_diagnostic,engine
  def test_call_deadline_and_exact_numeric_fields(self):
-  d,_=self.fixture(100);self.assertEqual(d['native_timeout_deadline_kind'],1);self.assertEqual(d['native_timeout_parentremaining_ms'],100000);self.assertTrue(34900<=d['native_timeout_childwait_ms']<=35100);self.assertEqual(len(d),3)
+  d,_=self.fixture(200);self.assertEqual(d['native_timeout_deadline_kind'],1);self.assertEqual(d['native_timeout_parentremaining_ms'],200000);self.assertTrue(89900<=d['native_timeout_childwait_ms']<=90100);self.assertEqual(len(d),3)
  def test_parent_segment_deadline(self):
   d,_=self.fixture(10);self.assertEqual(d['native_timeout_deadline_kind'],2);self.assertEqual(d['native_timeout_parentremaining_ms'],10000);self.assertTrue(9900<=d['native_timeout_childwait_ms']<=10100)
+ def test_fresh_tail_clips90_to45(self):
+  d,_=self.fixture(45);self.assertEqual(d['native_timeout_deadline_kind'],2);self.assertEqual(d['native_timeout_parentremaining_ms'],45000);self.assertTrue(44900<=d['native_timeout_childwait_ms']<=45100)
  def test_generated_safe_json_whitelist_and_redaction(self):
   d,engine=self.fixture(10);tree=ast.parse((engine/'retention-readonly-check.py').read_text());fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef)and n.name=='safe_audit_failure');ns={'json':json};exec(compile(ast.Module(body=[fn],type_ignores=[]),'actual-generated-parser','exec'),ns)
   value=dict(failure_type='TimeoutExpired',phase='derive-metadata',source_module='native_parallel_transport.py',source_line=80,metadata_stats=d)

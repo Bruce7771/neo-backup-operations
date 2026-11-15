@@ -31,6 +31,20 @@ def build_engine(here, destination):
     source = source.replace(inventory, "run(['restic','--no-lock','snapshots','--json'],env,90)")
     compile(source, str(audit), 'exec')
     audit.write_text(source, encoding='utf-8')
+    # Maintenance preplan only: longer cold reads, unchanged total admission budget.
+    transforms = {
+        'native_parallel_transport.py': [('spawned+35', 'spawned+90', 2),
+            ("TimeoutExpired('reviewed-native-reader',35)", "TimeoutExpired('reviewed-native-reader',90)", 1)],
+        'staged_derive.py': [('self.segment_end-self.now()<35', 'self.segment_end-self.now()<90', 1),
+            ('self.now()+120', 'self.now()+300', 1),
+            ("self.segments<=43,'Long metadata segments exhausted'", "self.segments<=30,'Long metadata segments exhausted'", 1)],
+        'retention-audit.py': [('segment_deadline_seconds=120', 'segment_deadline_seconds=300', 1)]}
+    for relative, changes in transforms.items():
+        path = engine / relative; body = path.read_text(encoding='utf-8')
+        for old, new, count in changes:
+            if body.count(old) != count: raise ValueError('Exact maintenance preplan timing anchor changed')
+            body = body.replace(old, new)
+        compile(body, str(path), 'exec'); path.write_text(body, encoding='utf-8')
     return engine
 
 
