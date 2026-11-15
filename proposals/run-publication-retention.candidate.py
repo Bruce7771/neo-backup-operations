@@ -105,7 +105,12 @@ def main():
         folder = Path(tmp); folder.chmod(0o700)
         engine = build_engine(here, folder / 'engine')
         # Same parent process owns preplan bundle, cache and restricted-RPC admission.
-        result = coordinator.main(engine, sys.argv[1:])
+        previous_path = list(sys.path)
+        sys.path.insert(0, str(engine))
+        try:
+            result = coordinator.main(engine, sys.argv[1:])
+        finally:
+            sys.path[:] = previous_path
         print(json.dumps({'scope': 'publication-forget-only-candidate', **result}), flush=True)
 
 
