@@ -69,3 +69,9 @@ proposals/reviewed-control-artifacts-test.py -text
 proposals/run-reviewed-controls-external-trial.publication.py -text
 proposals/retention-readonly-check.reviewed-controls.publication.yml -text
 proposals/external-reader-contract.reviewed-controls.publication.py -text
+proposals/reviewed-composed-control.proposed.py -text
+proposals/build-complete-config-retention-engine.proposed.py -text
+proposals/complete-config-retention-engine-test.py -text
+proposals/run-complete-config-external-trial.publication.py -text
+proposals/retention-readonly-check.complete-config.publication.yml -text
+proposals/external-reader-contract.complete-config.publication.py -text

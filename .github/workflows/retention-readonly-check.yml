@@ -81,6 +81,7 @@ jobs:
           python3 proposals/long-bounded-retention-engine-test.py
           python3 proposals/long-bounded-publication-test.py
           python3 proposals/reviewed-control-artifacts-test.py
+          python3 proposals/complete-config-retention-engine-test.py
       - name: One explicit serialized readonly native-catalog trial
         if: ${{ inputs.native_trial && !inputs.native_dump_diagnostic }}
         env:
