@@ -154,7 +154,8 @@ def main(engine, argv=None):
     require(not env.get('NEO_EXTERNAL_READER_MODE'), 'Dedicated maintenance job uses default native locks')
     policy = json.loads(env['NEO_POLICY_JSON']); static = static_inputs(env)
     observer = load('candidate_external_observer', HERE / 'external_writer_observation.py')
-    approval = execution_contract(env, policy, static, observer.get)
+    fetch = load('candidate_github_read', HERE / 'publication-github-read.proposed.py').GitHubRead(env.pop('NEO_GITHUB_READ_TOKEN'), policy['credential_holder_repositories'])
+    approval = execution_contract(env, policy, static, fetch)
     bounded = load('candidate_bounded', ROOT / 'scripts/retention-manual.py').bounded
     verify_checkout(env, bounded)
     access = load('candidate_access', ROOT / 'scripts/maintenance-access-check.py')
@@ -222,7 +223,7 @@ def main(engine, argv=None):
                 return super().acquire(*values, **budget)
         rpc = TimedSSH(ssh, subprocess_environment(env), bounded)
         def observe_external():
-            execution_contract(env, policy, static, observer.get)
+            execution_contract(env, policy, static, fetch)
             status = rpc.status()
             require(status.get('schema') == 2 and status.get('repository_id') == repository
                     and status.get('writer_policy_sha256') == approval.get('producer_policy_sha256')
@@ -231,7 +232,7 @@ def main(engine, argv=None):
                     and status.get('publication_producers_enrolled') is True
                     and not status.get('unknown_writer_units') and status.get('unknown_repository_clients') == 0,
                     'Actual publication producer/source inventory mismatch')
-            evidence = observer.observe(policy['credential_holder_repositories'], env['GITHUB_REPOSITORY'], env['GITHUB_RUN_ID'])
+            evidence = observer.observe(policy['credential_holder_repositories'], env['GITHUB_REPOSITORY'], env['GITHUB_RUN_ID'], fetch=fetch)
             require(evidence['complete'] is True and evidence['other_running_jobs'] == 0,
                     'Other credential-holder job active or unknown')
         def external_admission():

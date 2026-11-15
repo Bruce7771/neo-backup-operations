@@ -92,3 +92,5 @@ proposals/retention-actual-entrychain-test.py -text
 proposals/publication-native-endtoend-test.py -text
 proposals/publication-retention-coordinator.candidate.py -text
 proposals/publication-maintenance-handoff-test.py -text
+proposals/publication-github-read.proposed.py -text
+proposals/publication-github-read-test.py -text

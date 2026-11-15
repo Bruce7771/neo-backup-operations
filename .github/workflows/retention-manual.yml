@@ -15,6 +15,7 @@ on:
         required: true
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: backup-repository-maintenance
   cancel-in-progress: false
@@ -75,9 +76,11 @@ jobs:
           python3 -B proposals/publication-retention-coordinator-candidate-test.py
           python3 -B proposals/publication-deadline-budget-test.py
           python3 -B proposals/publication-maintenance-handoff-test.py
+          python3 -B proposals/publication-github-read-test.py
           sudo -n /usr/bin/python3 -B proposals/publication-native-endtoend-test.py --restic-executable "$(command -v restic)"
       - name: Private plan or unchanged-policy bounded forget
         env:
+          NEO_GITHUB_READ_TOKEN: ${{ github.token }}
           REQUEST_MODE: ${{ github.event_name == 'schedule' && 'policy-apply' || inputs.mode }}
           RESTIC_REPOSITORY: ${{ secrets.NEO_RESTIC_REPOSITORY }}
           AWS_DEFAULT_REGION: ${{ vars.NEO_B2_REGION }}
