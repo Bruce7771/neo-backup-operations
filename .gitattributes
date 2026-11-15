@@ -104,3 +104,4 @@ proposals/publication-check-lock-exception-test.py -text
 proposals/native-reader-timeout-metrics-test.py -text
 proposals/publication-inventory-probe-test.py -text
 proposals/publication-inventory-limit-test.py -text
+proposals/publication-per-io-reservation-test.py -text

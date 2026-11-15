@@ -84,6 +84,7 @@ jobs:
           python3 -B proposals/publication-check-lock-exception-test.py
           python3 -B proposals/publication-inventory-probe-test.py
           python3 -B proposals/publication-inventory-limit-test.py
+          python3 -B proposals/publication-per-io-reservation-test.py
           sudo -n /usr/bin/python3 -B proposals/publication-native-endtoend-test.py --restic-executable "$(command -v restic)"
       - name: Private plan or unchanged-policy bounded forget
         env:

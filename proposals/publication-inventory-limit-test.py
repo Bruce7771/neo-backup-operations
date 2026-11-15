@@ -11,7 +11,7 @@ class Tests(unittest.TestCase):
    tree=ast.parse(source);run=next(n for n in tree.body if isinstance(n,ast.FunctionDef)and n.name=='run');self.assertEqual(run.args.defaults[0].value,45)
    new90=[n for n in ast.walk(tree)if isinstance(n,ast.Call)and isinstance(n.func,ast.Name)and n.func.id=='run'and len(n.args)==3 and isinstance(n.args[2],ast.Constant)and n.args[2].value==90];self.assertEqual(len(new90),2)
    self.assertEqual(source.count("['restic','--no-lock','forget','--dry-run'"),1)
-   budget=(engine/'staged_derive.py').read_text();self.assertIn('self.now()+300',budget);self.assertIn('self.job_end=self.start+4500',budget);self.assertIn('spawned+90',(engine/'native_parallel_transport.py').read_text())
+   budget=(engine/'staged_derive.py').read_text();self.assertIn('now+300',budget);self.assertIn('self.job_end=self.start+4500',budget);self.assertIn('spawned+90',(engine/'native_parallel_transport.py').read_text())
    self.assertEqual((H.parent/'scripts/retention-audit.py').read_bytes(),original)
  def test_actual_preplan_reserve_segment_and_global_limits(self):
   with tempfile.TemporaryDirectory()as td:

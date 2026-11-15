@@ -45,6 +45,55 @@ def build_engine(here, destination):
             if body.count(old) != count: raise ValueError('Exact maintenance preplan timing anchor changed')
             body = body.replace(old, new)
         compile(body, str(path), 'exec'); path.write_text(body, encoding='utf-8')
+    # SOURCE-ONLY candidate: a point may cross I/O segments, never the same-job
+    # metadata deadline. The fresh-tail transport has no callback or no-lock flag.
+    path = engine / 'staged_derive.py'; body = path.read_text(encoding='utf-8')
+    old = """ def begin_child(self):
+  self.metadata()
+  if self.segment_end is None or self.segment_end-self.now()<90:
+   self.segments+=1;need(self.segments<=30,'Long metadata segments exhausted')
+   self.segment_end=min(self.now()+300,self.metadata_end)
+  self.check();return self.segment_end
+ def check(self):
+  self.metadata()
+  if self.segment_end is not None and self.now()>=self.segment_end:raise TimeoutError('Metadata segment exhausted')"""
+    new = """ def reserve_native_read(self):
+  with self._native_reservation_lock:
+   self.metadata();now=self.now()
+   if self.metadata_end-now<90:raise TimeoutError('Global metadata budget cannot reserve native read')
+   if self.segment_end is None or self.segment_end-now<90:
+    need(self.segments<30,'Long metadata segments exhausted');self.segments+=1
+    self.segment_end=min(now+300,self.metadata_end)
+   return self.segment_end
+ def begin_child(self):return self.reserve_native_read()
+ def check(self):self.metadata()"""
+    if body.count(old) != 1: raise ValueError('Exact per-child preplan budget anchor changed')
+    body = body.replace(old, new)
+    anchor = 'self.segment_end=None;self.segments=0'
+    if body.count(anchor) != 1: raise ValueError('Exact preplan lock anchor changed')
+    body = body.replace(anchor, anchor + ';self._native_reservation_lock=threading.RLock()')
+    anchor = ' def deadline(value):batch.deadline=value;batch.reader.deadline=value;catalog.deadline=value'
+    if body.count(anchor) != 1: raise ValueError('Exact preplan enclosing deadline anchor changed')
+    body = body.replace(anchor, """ old_reserver=getattr(batch.reader,'deadline_reserver',None);old_nolock=getattr(batch.reader,'preplan_read_only_nolock',False);old_restore=batch.restore
+ batch.reader.deadline_reserver=budget.reserve_native_read;batch.reader.preplan_read_only_nolock=True
+ def reserved_restore(args,env,ignored):return old_restore(args,env,budget.reserve_native_read())
+ batch.restore=reserved_restore
+ def deadline(value):batch.deadline=budget.metadata_end;batch.reader.deadline=budget.metadata_end;catalog.deadline=budget.metadata_end""")
+    anchor = '  catalog.authenticated_file_origin=old_origin'
+    if body.count(anchor) != 1: raise ValueError('Exact preplan cleanup anchor changed')
+    body = body.replace(anchor, anchor + "\n  batch.reader.deadline_reserver=old_reserver;batch.reader.preplan_read_only_nolock=old_nolock;batch.restore=old_restore")
+    compile(body, str(path), 'exec'); path.write_text(body, encoding='utf-8')
+    path = engine / 'retention-audit.py'; body = path.read_text(encoding='utf-8')
+    anchor = 'from staged_derive import Budget,staged_derive'
+    if body.count(anchor) != 1: raise ValueError('Exact preplan metadata command import changed')
+    body = body.replace(anchor, anchor + '\nfrom native_parallel_transport import readonly_metadata_command')
+    anchor = '            nonlocal cold_pitr_manifest_used'
+    if body.count(anchor) != 1: raise ValueError('Exact preplan dump reservation anchor changed')
+    body = body.replace(anchor, anchor + '\n            BUDGET.reserve_native_read()')
+    anchor = "external_command(['restic','dump',snapshot,path],env)"
+    if body.count(anchor) != 1: raise ValueError('Exact preplan metadata dump command changed')
+    body = body.replace(anchor, "external_command(readonly_metadata_command(['dump',snapshot,path]),env)")
+    compile(body, str(path), 'exec'); path.write_text(body, encoding='utf-8')
     return engine
 
 
