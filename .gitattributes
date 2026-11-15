@@ -94,3 +94,4 @@ proposals/publication-retention-coordinator.candidate.py -text
 proposals/publication-maintenance-handoff-test.py -text
 proposals/publication-github-read.proposed.py -text
 proposals/publication-github-read-test.py -text
+proposals/publication-actual-policy-shape-test.py -text

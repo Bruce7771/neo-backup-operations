@@ -33,6 +33,12 @@ class Tests(unittest.TestCase):
  def test_all_required_read_shapes(self):
   for url in [OWN,OWN+'/actions/runs?status=in_progress&per_page=100&page=1',OWN+'/environments/NEO_BACKUP_MAINTENANCE',OWN+'/environments/NEO_BACKUP_MAINTENANCE/deployment-branch-policies?per_page=100']:self.r(url)
   self.assertEqual(len(self.o.requests),4)
+ def test_actual_policy_needs_no_invented_roster_field(self):
+  self.assertEqual(c.CREDENTIAL_HOLDER_REPOSITORIES,['Bruce7771/neo-backup-operations'])
+  source=(H/'publication-retention-coordinator.candidate.py').read_text()
+  self.assertNotIn("policy['credential_holder_repositories']",source)
+  self.assertIn('observer.observe(CREDENTIAL_HOLDER_REPOSITORIES,',source)
+  self.assertIn("GitHubRead(env.pop('NEO_GITHUB_READ_TOKEN'), CREDENTIAL_HOLDER_REPOSITORIES)",source)
  def test_token_not_forwarded_and_all_parent_fetches_wired(self):
   e={'PATH':'/usr/bin:/bin','NEO_GITHUB_READ_TOKEN':TOKEN,'GITHUB_TOKEN':TOKEN,'RESTIC_REPOSITORY':'SYNTHETIC','AWS_ACCESS_KEY_ID':'SYNTHETIC','AWS_SECRET_ACCESS_KEY':'SYNTHETIC','RESTIC_PASSWORD_FILE':'SYNTHETIC','XDG_CACHE_HOME':'SYNTHETIC'}
   for native in (False,True):self.assertNotIn(TOKEN,c.subprocess_environment(e,native).values())

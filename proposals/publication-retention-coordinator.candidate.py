@@ -19,6 +19,9 @@ import time
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
+# Reviewed sole public repository holding external backup credentials.
+CREDENTIAL_HOLDER_REPOSITORIES = ['Bruce7771/neo-backup-operations']
+MAINTENANCE_SSH_TARGET = 'root@2.24.129.173'
 
 
 def load(name, path):
@@ -154,7 +157,7 @@ def main(engine, argv=None):
     require(not env.get('NEO_EXTERNAL_READER_MODE'), 'Dedicated maintenance job uses default native locks')
     policy = json.loads(env['NEO_POLICY_JSON']); static = static_inputs(env)
     observer = load('candidate_external_observer', HERE / 'external_writer_observation.py')
-    fetch = load('candidate_github_read', HERE / 'publication-github-read.proposed.py').GitHubRead(env.pop('NEO_GITHUB_READ_TOKEN'), policy['credential_holder_repositories'])
+    fetch = load('candidate_github_read', HERE / 'publication-github-read.proposed.py').GitHubRead(env.pop('NEO_GITHUB_READ_TOKEN'), CREDENTIAL_HOLDER_REPOSITORIES)
     approval = execution_contract(env, policy, static, fetch)
     bounded = load('candidate_bounded', ROOT / 'scripts/retention-manual.py').bounded
     verify_checkout(env, bounded)
@@ -209,7 +212,7 @@ def main(engine, argv=None):
         # Zero candidates do not need SSH keys or a publication transition.
         if not candidate['remove_snapshot_ids']:
             return dict(result='zero-candidate-noop', deleted_snapshots=0, prune=False, **postcheck(candidate))
-        target = policy.get('maintenance_ssh', {}).get('target', '')
+        target = MAINTENANCE_SSH_TARGET
         require(re.fullmatch(r'root@[A-Za-z0-9.:-]+', target), 'Reviewed restricted SSH target required')
         key = work / 'ssh-key'; key.write_text(env['NEO_MAINTENANCE_SSH_KEY']); key.chmod(0o600)
         hosts = work / 'known-hosts'; hosts.write_text(env['NEO_MAINTENANCE_SSH_KNOWN_HOSTS']); hosts.chmod(0o600)
@@ -232,7 +235,7 @@ def main(engine, argv=None):
                     and status.get('publication_producers_enrolled') is True
                     and not status.get('unknown_writer_units') and status.get('unknown_repository_clients') == 0,
                     'Actual publication producer/source inventory mismatch')
-            evidence = observer.observe(policy['credential_holder_repositories'], env['GITHUB_REPOSITORY'], env['GITHUB_RUN_ID'], fetch=fetch)
+            evidence = observer.observe(CREDENTIAL_HOLDER_REPOSITORIES, env['GITHUB_REPOSITORY'], env['GITHUB_RUN_ID'], fetch=fetch)
             require(evidence['complete'] is True and evidence['other_running_jobs'] == 0,
                     'Other credential-holder job active or unknown')
         def external_admission():
