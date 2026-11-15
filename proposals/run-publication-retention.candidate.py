@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""SOURCE ONLY launcher for a separate protected maintenance job; default PLAN."""
+import importlib.util
+import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+
+
+def load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module
+
+
+def build_engine(here, destination):
+    builder = load('publication_candidate_family_builder', here / 'build-same-job-tail-retention-engine.proposed.py')
+    engine = builder.build(here.parent / 'scripts', destination)
+    # The ordinary auditor preserves one explicit no-lock dry-run call. This
+    # separate Maintenance5 job can use its native lock; alter ONLY own staging.
+    audit = engine / 'retention-audit.py'
+    source = audit.read_text(encoding='utf-8')
+    old = "['restic','--no-lock','forget','--dry-run'"
+    if source.count(old) != 1:
+        raise ValueError('Exact staged native dry-run anchor changed')
+    source = source.replace(old, "['restic','forget','--dry-run'", 1)
+    compile(source, str(audit), 'exec')
+    audit.write_text(source, encoding='utf-8')
+    return engine
+
+
+def main():
+    os.umask(0o077)
+    here = Path(__file__).resolve().parent
+    coordinator = load('publication_candidate_coordinator', here / 'publication-retention-coordinator.candidate.py')
+    with tempfile.TemporaryDirectory(prefix='neo-publication-engine-', dir=os.environ['RUNNER_TEMP']) as tmp:
+        folder = Path(tmp); folder.chmod(0o700)
+        engine = build_engine(here, folder / 'engine')
+        # Same parent process owns preplan bundle, cache and restricted-RPC admission.
+        result = coordinator.main(engine, sys.argv[1:])
+        print(json.dumps({'scope': 'publication-forget-only-candidate', **result}), flush=True)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except BaseException as error:
+        reason = getattr(error, 'reason', 'downstream-failure-inspect-private-phase')
+        print('::error::Publication maintenance stopped safely (' + type(error).__name__ + ': ' + reason + '); no automatic retry or unlock', file=sys.stderr)
+        raise SystemExit(1)

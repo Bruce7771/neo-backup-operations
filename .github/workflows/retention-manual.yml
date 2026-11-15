@@ -1,0 +1,103 @@
+name: Bounded publication-coordinated backup maintenance
+on:
+  schedule:
+    - cron: '41 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: PLAN by default; policy-apply requires the unchanged reviewed contract
+        type: choice
+        options: [plan, policy-apply]
+        default: plan
+      reviewed_sha:
+        description: Exact reviewed main commit containing this workflow and its code
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: backup-repository-maintenance
+  cancel-in-progress: false
+jobs:
+  manual:
+    if: vars.NEO_BACKUP_MANUAL_REVIEWED == 'true' && github.repository == 'Bruce7771/neo-backup-operations' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && vars.NEO_BACKUP_APPLY_ENABLED == 'true'))
+    environment: NEO_BACKUP_MAINTENANCE
+    runs-on: ubuntu-24.04
+    # Full read-only metadata preplan is outside the bounded publication HOLD.
+    timeout-minutes: 80
+    steps:
+      - name: Require this exact reviewed main commit
+        env:
+          REVIEWED_SHA: ${{ inputs.reviewed_sha }}
+          ACTUAL_SHA: ${{ github.sha }}
+          EXECUTION_EVENT: ${{ github.event_name }}
+          EXECUTOR_CONTRACT_JSON: ${{ vars.NEO_RETENTION_APPLY_CONTRACT_JSON }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,re
+          event=os.environ['EXECUTION_EVENT']
+          assert event in ('workflow_dispatch','schedule')
+          if event == 'schedule':
+              contract=json.loads(os.environ['EXECUTOR_CONTRACT_JSON'])
+              assert contract.get('schema') == 1 and contract.get('reviewed') is True
+              reviewed=contract.get('executor_sha','')
+          else:
+              reviewed=os.environ['REVIEWED_SHA']
+          assert re.fullmatch('[0-9a-f]{40}',reviewed)
+          assert reviewed == os.environ['ACTUAL_SHA']
+          PY
+      - name: Load the exact reviewed operations commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Install checksum-pinned restic
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          curl --fail --silent --show-error --location --max-time 45 \
+            https://github.com/restic/restic/releases/download/v0.16.4/restic_0.16.4_linux_amd64.bz2 \
+            -o "$RUNNER_TEMP/restic.bz2"
+          printf '%s  %s\n' 3d4d43c169a9e28ea76303b1e8b810f0dcede7478555fdaa8959971ad499e324 "$RUNNER_TEMP/restic.bz2" | sha256sum -c -
+          install -d -m 0700 "$RUNNER_TEMP/restic-bin"
+          bzip2 -dc "$RUNNER_TEMP/restic.bz2" > "$RUNNER_TEMP/restic-bin/restic"
+          chmod 0700 "$RUNNER_TEMP/restic-bin/restic"
+          echo "$RUNNER_TEMP/restic-bin" >> "$GITHUB_PATH"
+          rm -- "$RUNNER_TEMP/restic.bz2"
+      - name: Verify existing coordinator and local synthetic native boundary
+        run: |
+          python3 -B proposals/publication-coordinator-core-test.py
+          python3 -B proposals/publication-existing-coordinator-test.py
+          python3 -B proposals/publication-retention-coordinator-candidate-test.py
+          python3 -B proposals/publication-deadline-budget-test.py
+          python3 -B proposals/publication-native-endtoend-test.py
+      - name: Private plan or unchanged-policy bounded forget
+        env:
+          REQUEST_MODE: ${{ github.event_name == 'schedule' && 'policy-apply' || inputs.mode }}
+          RESTIC_REPOSITORY: ${{ secrets.NEO_RESTIC_REPOSITORY }}
+          AWS_DEFAULT_REGION: ${{ vars.NEO_B2_REGION }}
+          # Existing scoped Maintenance5 pair ONLY in this separate protected job.
+          # Default native locks also require lock-file writes during PLAN.
+          AWS_ACCESS_KEY_ID: ${{ secrets.NEO_B2_MAINTENANCE_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.NEO_B2_MAINTENANCE_KEY }}
+          NEO_RESTIC_PASSWORD: ${{ secrets.NEO_RESTIC_PASSWORD }}
+          NEO_POLICY_JSON: ${{ secrets.NEO_RETENTION_POLICY_JSON }}
+          NEO_PROTECTED_JSON: ${{ secrets.NEO_RETENTION_PROTECTED_JSON }}
+          NEO_RESTORED_JSON: ${{ secrets.NEO_RETENTION_RESTORED_JSON }}
+          NEO_DEPENDENCIES_JSON: ${{ secrets.NEO_RETENTION_DEPENDENCIES_JSON }}
+          NEO_HOURLY_RECOVERY_JSON: ${{ secrets.NEO_RETENTION_HOURLY_RECOVERY_JSON }}
+          NEO_MAINTENANCE_SSH_KEY: ${{ secrets.NEO_MAINTENANCE_SSH_KEY }}
+          NEO_MAINTENANCE_SSH_KNOWN_HOSTS: ${{ secrets.NEO_MAINTENANCE_SSH_KNOWN_HOSTS }}
+          NEO_BACKUP_APPLY_ENABLED: ${{ vars.NEO_BACKUP_APPLY_ENABLED }}
+          # New metadata-only review value; contains hashes and bounds, no keys/IDs.
+          NEO_RETENTION_APPLY_CONTRACT_JSON: ${{ vars.NEO_RETENTION_APPLY_CONTRACT_JSON }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 -B proposals/run-publication-retention.candidate.py --mode "$REQUEST_MODE"
+      # No artifact upload, persistent cache, application pause, prune or version purge.

@@ -1,0 +1,313 @@
+{
+  "audit3_workflows_modified": false,
+  "new_authentication_secrets": 0,
+  "new_metadata_only_variable": "NEO_RETENTION_APPLY_CONTRACT_JSON",
+  "registration_path": ".github/workflows/retention-manual.yml",
+  "regular_schedule_utc": "41 4 * * 1",
+  "runtime_executed_by_manifest": false,
+  "runtime_source": [
+    {
+      "currently_tracked": true,
+      "path": "proposals/build-cold-native-retention-engine.proposed.py",
+      "sha256": "bc32f9a4a8ed3f0ae09aafe6aea50fdda000508e6391949df5026cd907a442eb"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/build-complete-config-retention-engine.proposed.py",
+      "sha256": "dc075ef0e93f96b1d125848f9437004319f05c786b5676932b3d3b36e8963607"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/build-current-ops-retention-engine.proposed.py",
+      "sha256": "faf34ac68d38c0858c45f0c01178ae62b25edfc53434194dd8aa9c0f85a271ba"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/build-long-bounded-retention-engine.proposed.py",
+      "sha256": "29f4a055577fdb1cb78a21155ec8eb77eb5ff0c7a66ac691c3e2be54d94fc3f8"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/build-native-empty-file-fix.proposed.py",
+      "sha256": "90695bf82f57516156874ef671e4528ea3f7a9425189fa6471c186f0fbc06910"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/build-native-engine.proposed.py",
+      "sha256": "b7c4b8d7eeeabaac078fc1ea3f13285a5d881045b255bdaf69952d99d2f6e4b2"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/build-native-external-engine.proposed.py",
+      "sha256": "1edaf41004470bca9c604834081785a7e8703ff78e04600f0fcaf1501137d60e"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/build-native-parallel-engine.proposed.py",
+      "sha256": "647bcf6d3e2a3a717227afbf8f7203587cfd18a169b3aec459ba126f753a5540"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/build-reviewed-controls-retention-engine.proposed.py",
+      "sha256": "9b5f0aa6aece801516544e514fa2792aabaa05ad81e3fd871613ad3e4a3406d7"
+    },
+    {
+      "currently_tracked": false,
+      "path": "proposals/build-same-job-tail-retention-engine.proposed.py",
+      "sha256": "7d2ffb8f09bec72a541f40a36f6c175504ad3eba5027685747b7c53103b2a130"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/build-staged-retention-engine.proposed.py",
+      "sha256": "4c824a6613ff48ae520066699bb041213d4753dea2dfe166f6673258da69f946"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/build-unverified-base-family-retention-engine.proposed.py",
+      "sha256": "ac5b215c66eb8aac9efa7e3d6fe9c030cf318fe4502dd4b9847d4ae1045bb2cb"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/current-ops-kit-closure.proposed.py",
+      "sha256": "beafcd2ac83c11dca7ed4b82c54b429d1865ae609dca707be23d11855eefc32f"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/external-reader-contract.proposed.py",
+      "sha256": "40ff28cefb898989f039cdc2a3df2e7a17cb3703a3136a78f70a35ac63f997cb"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/external_writer_observation.py",
+      "sha256": "3b245050ee34bfe9bbfa4a95a57c31ea8ed99a1ea8bfa029a2a6714b453ed3ed"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/lease_admission.py",
+      "sha256": "59d5b65b9c8df92a9ce70c86532898d04973a4923c7f69fc96960ebd4c2447f5"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/native-hourly-integration.proposed.py",
+      "sha256": "d5cc49f7c4a1f182e87a35d962e3966f4cfb8bb484f41cc2e2caaf779f525fe4"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/native-parallel-catalog.proposed.py",
+      "sha256": "9176e9b7cdd26a1b67385a2046d2608caf6eb3a807550220600cd4601032010d"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/native-parallel-transport.proposed.py",
+      "sha256": "5b2dcdc38e76842ba344c14471fdc606b40266d7debf3f01161c499e9349c67b"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/native-pg-catalog-authentication.proposed.py",
+      "sha256": "fef50ec2e96151cfa8ff826ccec03c72e489e0e39ed166e20cd09856e128b7f9"
+    },
+    {
+      "currently_tracked": false,
+      "path": "proposals/publication-coordinator-core.proposed.py",
+      "sha256": "8ee2d528a3c1852aeb293c42d504a97a5335086efe347551a4a1f49499219fe6"
+    },
+    {
+      "currently_tracked": false,
+      "path": "proposals/publication-existing-coordinator.proposed.py",
+      "sha256": "e1b6ce71c836d5178f2bdf01b60e62f9775eac0f5ebe3a5b93c306e00fe2720b"
+    },
+    {
+      "currently_tracked": false,
+      "path": "proposals/publication-retention-coordinator.candidate.py",
+      "sha256": "97198a44b2b7f8d678e76bfa9ecc66b32fd3b7427a4f6b0851c80eb5d73ba247"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/retention-safety-candidate.py",
+      "sha256": "16938beed3d1c6e75eb243a30c1f9e0c6fd11bdde4fcd2bf939256ee2b5e003a"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/reviewed-composed-control.proposed.py",
+      "sha256": "a6a0ce280ecbe61823294ace81730aa9e2682eec931afaa7fef77dc516a253ef"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/reviewed-control-artifacts.proposed.py",
+      "sha256": "f6b0b1aa20072428d2237453cb8f9e0c8fb217e5793b2494d14d36cc244c4da4"
+    },
+    {
+      "currently_tracked": false,
+      "path": "proposals/run-publication-retention.candidate.py",
+      "sha256": "415bdab4c82694f1c0a628cc64ebfc9692890d7656c9fcf2b367cde097b7396a"
+    },
+    {
+      "currently_tracked": false,
+      "path": "proposals/same-job-fresh-tail.proposed.py",
+      "sha256": "ab6bfc16c2672353787075d480ad4fbc4b99a0c3bc82c92dad9d9453e8a285b8"
+    },
+    {
+      "currently_tracked": true,
+      "path": "proposals/staged-derive.proposed.py",
+      "sha256": "ad9d9052af6e0bcc741c3360ea673f8206b95dc1606e767fc3f66a44b986604b"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/asof-recovery-hold-test.py",
+      "sha256": "4d6988fe92f64900b76485be12cf9278a1783ed0bcaa7317d9c69dc0ee28b674"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/asof_recovery_hold.py",
+      "sha256": "57bdacb533ed2a9e8aa9f8ac9d8d4abe75cda853ec984952eed39fc3b400bc85"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/hourly_metadata_batch.py",
+      "sha256": "f393cb4d0c826f8e24379824e984e8db124ae3dea70a5fc60f1d8d877e15a90b"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/hourly_metadata_batch_test.py",
+      "sha256": "9f041a39930e00401923a1822a7a434efcccb1c8664c8dde118739183ba26e8b"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/hourly_recovery.py",
+      "sha256": "93666fb1125f1e0cc5d83a381c9b9c13ed0076b8df2b5a2ecbabf8736959b873"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/hourly_recovery_test.py",
+      "sha256": "3b3950d6a439ef2ac57e931812874a1c4cb84e613840d4acb6cd0b2ba5c03bac"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/hourly_selfcontained_v3.py",
+      "sha256": "955e14063c8269e589b5164c97e4331fbac5b3566f7362feaac767ed0daf83a8"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/hourly_selfcontained_v3_test.py",
+      "sha256": "1a467094d61da4a042e3df9ec6b120ff6f3fa0663a471e08d7f3e9d8b07a051f"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/maintenance-access-check-test.py",
+      "sha256": "dbd7ae8a21a659cf81def32ee093e291e1061a801e912180f7beb466e78eea2f"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/maintenance-access-check.py",
+      "sha256": "a2196b65023b34888eec0478802c60cd6e07991ec7e28934fc0d764241f19dae"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/retention-audit-diagnostic-test.py",
+      "sha256": "c13306489aacbd9e6075e9563c26a87ed72a9880bffb648c03a33acc6bf503bb"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/retention-audit.py",
+      "sha256": "9fa5ed527ef3242affa95b316aa2a8e04a2cbebc463a95aec9a4e239b1bb2836"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/retention-manual-test.py",
+      "sha256": "0304171896e180f9f329237c11dd8153a689f483db8362e0568463dbb9d3c590"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/retention-manual.py",
+      "sha256": "b0c82cfcd91c6e0029bfed2681df64703b5cb879a60fb44478f0389652024245"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/retention-plan.py",
+      "sha256": "cb4e7aa362ca3cd174dac526a0723575657740be471821146e1ce2a9941f96ca"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/retention-postcheck-test.py",
+      "sha256": "a79f87a7380100632f89229ba378b3094c63f5f7431c8284f9ae407e9c33e5c7"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/retention-readonly-check-test.py",
+      "sha256": "c90a6daba14c9a3c9a49a06c9f0154aa0cfaa01b4f9c7bcc81ac6293105e824a"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/retention-readonly-check.py",
+      "sha256": "af4aceb4f846fba57ec4ee008e0197b3e2491def721f1568ac12b55fab9c7ff6"
+    },
+    {
+      "currently_tracked": true,
+      "path": "scripts/retention_postcheck.py",
+      "sha256": "2e35dda3b06881986b238d127c4b99991ce27a14055cdeca20e8bf026e49d788"
+    }
+  ],
+  "scheduled_executor_source": "reviewed metadata contract executor_sha matched to actual main SHA before checkout",
+  "scheduled_mode": "policy-apply",
+  "scheduled_requires_reviewed_and_apply_enabled": true,
+  "schema": 1,
+  "scope": "existing-publication-maintenance-source-closure",
+  "secrets_reused_from_existing_workflows": true,
+  "source_validation": {
+    "precheckout_fixture_cases_passed": 8,
+    "schedule_structure_checks_passed": 8,
+    "workflow_registered": false
+  },
+  "workflow_candidate": {
+    "currently_tracked": false,
+    "path": "proposals/retention-manual.publication.candidate.yml",
+    "sha256": "52119783646a7c523d86170e8202deb23c1efc6282a941f413e84e2b4d169343"
+  },
+  "workflow_validation_only": [
+    {
+      "currently_tracked": false,
+      "path": "proposals/publication-coordinator-core-test.py",
+      "sha256": "5e282ae2fc55df8a9277c17ceab2ab5918ba0f3f9dd8163deacc8fa532ebe79e"
+    },
+    {
+      "currently_tracked": false,
+      "path": "proposals/publication-existing-coordinator-test.py",
+      "sha256": "3263480409c939534b30319a5a7dd43ef46863c7ce3090bb213abc40de5f147f"
+    },
+    {
+      "currently_tracked": false,
+      "path": "proposals/publication-retention-coordinator-candidate-test.py",
+      "sha256": "729d8ae9b91ec7d46829cac90272b5226ab3fe831aca35f77d8c72a869a6e13b"
+    },
+    {
+      "currently_tracked": false,
+      "path": "proposals/publication-deadline-budget-test.py",
+      "sha256": "af214778ed42d496e388b57ac0335b1d6b37c15b8f402a8d42157c11451f1239"
+    },
+    {
+      "currently_tracked": false,
+      "path": "proposals/publication-native-endtoend-test.py",
+      "sha256": "f69f92a95703144216308970090397c80ac17fc9fb16b19969704ec0c315ca54"
+    },
+    {
+      "currently_tracked": false,
+      "path": "proposals/same-job-fresh-tail-test.py",
+      "sha256": "29e2283c02df8cb5ff6409307e21ba7e25d00192e44b64ea153878e175e4a955"
+    },
+    {
+      "currently_tracked": false,
+      "path": "proposals/durable-publication-hold.proposed.py",
+      "sha256": "c308a50618084d30fbe5734bd27be9fc2fb2c63f051bd23f9bbc8b6d511c6e41"
+    },
+    {
+      "currently_tracked": false,
+      "path": "proposals/publication-ssh-entry.proposed.py",
+      "sha256": "32c263332c90aa988257ab3ddabe62750786b2d4377aed22c158d0b253a414d9"
+    },
+    {
+      "currently_tracked": false,
+      "path": "proposals/publication-restricted-command.proposed.py",
+      "sha256": "ab10bd773bbb9a723c7c6267e0533e14b051c87865a7f205bf6d45637c034c0c"
+    }
+  ]
+}
