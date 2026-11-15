@@ -121,7 +121,11 @@ class CandidateTests(unittest.TestCase):
             self.assertEqual(len(modules), 30)
             for module in modules: compile(module.read_text(encoding='utf-8'), str(module), 'exec')
             audit = (engine / 'retention-audit.py').read_text(encoding='utf-8')
-            self.assertNotIn('--no-lock', audit)
+            self.assertEqual(audit.count('--no-lock'), 1)
+            self.assertEqual(audit.count("['restic','--no-lock','forget','--dry-run'"), 1)
+            self.assertNotIn("['restic','--no-lock','forget','--json'", audit)
+            coordinator=(HERE/'publication-retention-coordinator.candidate.py').read_text()
+            self.assertIn("require('--no-lock' not in arguments",coordinator)
             self.assertIn('all_classified_hourly_recovery', audit)
             self.assertIn('accepted_restore_base_sha256', audit)
 

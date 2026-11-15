@@ -17,14 +17,14 @@ def load(name, path):
 def build_engine(here, destination):
     builder = load('publication_candidate_family_builder', here / 'build-same-job-tail-retention-engine.proposed.py')
     engine = builder.build(here.parent / 'scripts', destination)
-    # The ordinary auditor preserves one explicit no-lock dry-run call. This
-    # separate Maintenance5 job can use its native lock; alter ONLY own staging.
+    # Preserve the auditor's ONE nonmutating no-lock dry-run planning call.
+    # Native dry-run forget otherwise requires EX and conflicts with ordinary SH readers.
+    # Actual forget remains default EX under the reviewed publication HOLD.
     audit = engine / 'retention-audit.py'
     source = audit.read_text(encoding='utf-8')
     old = "['restic','--no-lock','forget','--dry-run'"
     if source.count(old) != 1:
         raise ValueError('Exact staged native dry-run anchor changed')
-    source = source.replace(old, "['restic','forget','--dry-run'", 1)
     compile(source, str(audit), 'exec')
     audit.write_text(source, encoding='utf-8')
     return engine
