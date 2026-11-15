@@ -11,7 +11,7 @@ class ParallelNativeCLI:
   require(max_live==4,'Exactly four maximum native children reviewed')
   self.env=env;self.deadline=deadline;self.directory=Path(directory);self.popen=popen
   self.max_live=max_live;self.process_limit=process_limit;self.byte_limit=byte_limit
-  self.calls=0;self.output_bytes=0;self.max_live_children=0;self.peak_children_rss_kib=0
+  self.calls=0;self.output_bytes=0;self.max_live_children=0;self.peak_children_rss_kib=0;self.timeout_diagnostic={}
   self._reserved=0;self._children={};self._lock=threading.Lock();self._cancel_lock=threading.Lock();self._cancelled=threading.Event();self._slots=threading.BoundedSemaphore(max_live)
  def _sample_rss(self):
   with self._lock:pids=list(self._children)
@@ -68,10 +68,14 @@ class ParallelNativeCLI:
      # Registration and spawn serialize with cancellation to avoid an unseen PID.
      p=self.popen(cmd,env=self.env,stdin=subprocess.DEVNULL,stdout=out,stderr=subprocess.DEVNULL,start_new_session=True)
      self.calls+=1;self._children[p.pid]=p;self.max_live_children=max(self.max_live_children,len(self._children))
-    end=min(self.deadline,time.monotonic()+35)
+    spawned=time.monotonic();parent_deadline=self.deadline
+    end=min(parent_deadline,spawned+35);kind=1 if spawned+35<=parent_deadline else 2
     while True:
      self._sample_rss();left=end-time.monotonic()
-     if left<=0:raise subprocess.TimeoutExpired('reviewed-native-reader',35)
+     if left<=0:
+      with self._lock:
+       if not self.timeout_diagnostic:self.timeout_diagnostic={'native_timeout_childwait_ms':max(0,int((time.monotonic()-spawned)*1000)),'native_timeout_parentremaining_ms':max(0,int((parent_deadline-spawned)*1000)),'native_timeout_deadline_kind':kind}
+      raise subprocess.TimeoutExpired('reviewed-native-reader',35)
      try:code=p.wait(timeout=min(.05,left));break
      except subprocess.TimeoutExpired:continue
     require(code==0,'Native metadata command failed')

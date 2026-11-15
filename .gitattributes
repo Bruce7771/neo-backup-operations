@@ -101,3 +101,4 @@ proposals/publication-audit-child-diagnostic-test.py -text
 proposals/run-publication-retention.candidate.py -text
 proposals/publication-retention-coordinator-candidate-test.py -text
 proposals/publication-check-lock-exception-test.py -text
+proposals/native-reader-timeout-metrics-test.py -text

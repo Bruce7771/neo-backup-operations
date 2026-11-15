@@ -13,12 +13,14 @@ def build(original,destination):
  batch=safety.once(batch,'from native_pg_catalog_v2 import NativePGCatalog','from native_parallel_catalog import ParallelPGCatalog as NativePGCatalog\nfrom native_parallel_transport import ParallelNativeCLI')
  batch=safety.once(batch,'self.reader=reader or BoundedNativeCLI(env,deadline,self.cache)','self.reader=reader or ParallelNativeCLI(env,deadline,self.cache)')
  batch=safety.once(batch,'authenticated_file_origin=self.assert_native_origin)','authenticated_file_origin=self.assert_native_origin,cancel_callback=getattr(self.reader,\'cancel_all\',lambda:None))')
- batch=safety.once(batch,"self.stats['catalog_cli_processes']=self.reader.calls;self.stats['catalog_cli_selected_bytes']=self.reader.output_bytes", "self.stats['catalog_cli_processes']=self.reader.calls;self.stats['catalog_cli_selected_bytes']=self.reader.output_bytes\n   self.stats['catalog_max_live_children']=getattr(self.reader,'max_live_children',0)\n   self.stats['catalog_peak_children_rss_kib']=getattr(self.reader,'peak_children_rss_kib',0)")
+ batch=safety.once(batch,"self.stats['catalog_cli_processes']=self.reader.calls;self.stats['catalog_cli_selected_bytes']=self.reader.output_bytes", "self.stats['catalog_cli_processes']=self.reader.calls;self.stats['catalog_cli_selected_bytes']=self.reader.output_bytes\n   self.stats['catalog_max_live_children']=getattr(self.reader,'max_live_children',0)\n   self.stats['catalog_peak_children_rss_kib']=getattr(self.reader,'peak_children_rss_kib',0)\n   self.stats.update(getattr(self.reader,'timeout_diagnostic',{}))")
  (out/'hourly_metadata_batch.py').write_text(batch)
  for filename in ('retention-audit.py','retention-readonly-check.py'):
   s=(out/filename).read_text();s=safety.once(s,"'asof_recovery_hold.py','native_pg_catalog_v2.py'","'asof_recovery_hold.py','native_pg_catalog_v2.py','native_parallel_catalog.py','native_parallel_transport.py'")
   if filename=='retention-readonly-check.py':
-   s=safety.once(s,"'catalog_cli_processes','catalog_cli_selected_bytes'}","'catalog_cli_processes','catalog_cli_selected_bytes','catalog_tree_cache_evictions','catalog_max_parallel_fetches','catalog_max_live_children','catalog_peak_children_rss_kib'}")
+   s=safety.once(s,"'catalog_cli_processes','catalog_cli_selected_bytes'}","'catalog_cli_processes','catalog_cli_selected_bytes','catalog_tree_cache_evictions','catalog_max_parallel_fetches','catalog_max_live_children','native_timeout_childwait_ms','native_timeout_parentremaining_ms','native_timeout_deadline_kind','catalog_peak_children_rss_kib'}")
+  if filename=='retention-readonly-check.py':
+   s=safety.once(s,"        if any(type(n)is not int or n<0 for n in stats.values()):continue","        if any(type(n)is not int or n<0 for n in stats.values()):continue\n        if 'native_timeout_deadline_kind'in stats and stats['native_timeout_deadline_kind']not in(1,2):continue\n        if any(stats.get(k,0)>4500000 for k in('native_timeout_childwait_ms','native_timeout_parentremaining_ms')):continue")
   (out/filename).write_text(s)
  return out
 if __name__=='__main__':
