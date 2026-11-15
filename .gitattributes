@@ -75,3 +75,8 @@ proposals/complete-config-retention-engine-test.py -text
 proposals/run-complete-config-external-trial.publication.py -text
 proposals/retention-readonly-check.complete-config.publication.yml -text
 proposals/external-reader-contract.complete-config.publication.py -text
+proposals/retention-audit.scheduled-native.publication.yml -text
+proposals/external-reader-contract.scheduled-audit.publication.py -text
+proposals/run-scheduled-retention-audit.proposed.py -text
+proposals/scheduled-audit-contract-test.py -text
+.github/workflows/retention-audit.yml -text

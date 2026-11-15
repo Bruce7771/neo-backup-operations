@@ -13,7 +13,7 @@ jobs:
     if: vars.NEO_BACKUP_AUDIT_ENABLED == 'true' && github.repository == 'Bruce7771/neo-backup-operations' && github.ref == 'refs/heads/main'
     environment: NEO_BACKUP_MAINTENANCE
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 80
     steps:
       - name: Load this exact reviewed operational commit
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -28,6 +28,8 @@ jobs:
           python3 scripts/hourly_selfcontained_v3_test.py
           python3 scripts/hourly_metadata_batch_test.py
           python3 scripts/retention-audit-diagnostic-test.py
+          python3 proposals/complete-config-retention-engine-test.py
+          python3 proposals/scheduled-audit-contract-test.py
       - name: Install checksum-pinned restic
         shell: bash
         run: |
@@ -44,6 +46,8 @@ jobs:
           rm -- "$RUNNER_TEMP/restic.bz2"
       - name: Read-only plan, native integrity and retained component restore
         env:
+          NEO_EXTERNAL_READER_MODE: github-serialized-readonly-scheduled-audit
+          NEO_REVIEWED_TRIAL_COMMIT: ${{ github.sha }}
           RESTIC_REPOSITORY: ${{ secrets.NEO_RESTIC_REPOSITORY }}
           AWS_DEFAULT_REGION: ${{ vars.NEO_B2_REGION }}
           AWS_ACCESS_KEY_ID: ${{ secrets.NEO_B2_AUDIT_KEY_ID }}
@@ -54,5 +58,5 @@ jobs:
           NEO_RESTORED_JSON: ${{ secrets.NEO_RETENTION_RESTORED_JSON }}
           NEO_DEPENDENCIES_JSON: ${{ secrets.NEO_RETENTION_DEPENDENCIES_JSON }}
           NEO_HOURLY_RECOVERY_JSON: ${{ secrets.NEO_RETENTION_HOURLY_RECOVERY_JSON }}
-        run: python3 scripts/retention-readonly-check.py
+        run: python3 proposals/run-scheduled-retention-audit.proposed.py
       # No artifact/cache upload; no mutation job is enabled here.
