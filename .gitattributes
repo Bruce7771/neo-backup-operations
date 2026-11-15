@@ -106,3 +106,6 @@ proposals/publication-inventory-probe-test.py -text
 proposals/publication-inventory-limit-test.py -text
 proposals/publication-per-io-reservation-test.py -text
 proposals/publication-parent-engine-import-test.py -text
+proposals/main-current-cold-restore.py -text
+proposals/main-current-cold-restore-test.py -text
+proposals/main-image-stream-validator.proposed.py -text

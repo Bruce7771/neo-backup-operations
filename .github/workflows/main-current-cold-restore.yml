@@ -1,0 +1,74 @@
+name: Manual current Neo cold runtime restoration
+on:
+  workflow_dispatch:
+    inputs:
+      reviewed_sha: {description: Exact reviewed main commit, required: true, type: string}
+      snapshot: {description: Reviewed main composed data snapshot, required: true, type: string}
+      origin_sha256: {description: Reviewed image origin SHA256, required: true, type: string}
+      image_sha256: {description: Reviewed image archive SHA256, required: true, type: string}
+      main_archive_sha256: {description: Reviewed Main source archive SHA256, required: true, type: string}
+      main_archive_bytes: {description: Reviewed Main source archive size, required: true, type: string}
+      main_sha: {description: Reviewed Main release SHA, required: true, type: string}
+permissions:
+  contents: read
+concurrency:
+  group: backup-repository-maintenance
+  cancel-in-progress: false
+jobs:
+  cold:
+    if: vars.NEO_BACKUP_MANUAL_REVIEWED == 'true' && github.repository == 'Bruce7771/neo-backup-operations' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: NEO_BACKUP_MAINTENANCE
+    timeout-minutes: 10
+    steps:
+      - name: Require exact reviewed commit
+        env:
+          REVIEWED: ${{ inputs.reviewed_sha }}
+        run: |
+          python3 - <<'PY'
+          import os,re
+          assert re.fullmatch('[0-9a-f]{40}',os.environ['REVIEWED'])
+          assert os.environ['REVIEWED']==os.environ['GITHUB_SHA']
+          PY
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Install checksum pinned restic
+        run: |
+          set -euo pipefail
+          umask 077
+          curl --fail --silent --show-error --location --max-time 45 https://github.com/restic/restic/releases/download/v0.16.4/restic_0.16.4_linux_amd64.bz2 -o "$RUNNER_TEMP/restic.bz2"
+          printf '%s  %s\n' 3d4d43c169a9e28ea76303b1e8b810f0dcede7478555fdaa8959971ad499e324 "$RUNNER_TEMP/restic.bz2" | sha256sum -c -
+          mkdir -m 0700 "$RUNNER_TEMP/restic-bin"
+          bzip2 -dc "$RUNNER_TEMP/restic.bz2" > "$RUNNER_TEMP/restic-bin/restic"
+          chmod 0700 "$RUNNER_TEMP/restic-bin/restic"
+          echo "$RUNNER_TEMP/restic-bin" >> "$GITHUB_PATH"
+          rm -- "$RUNNER_TEMP/restic.bz2"
+      - name: Verify source admission fixtures
+        run: python3 -I -B proposals/main-current-cold-restore-test.py
+      - name: Privately restore and cold start exact release
+        env:
+          NEO_REVIEWED_COMMIT: ${{ inputs.reviewed_sha }}
+          NEO_IMAGE_SNAPSHOT: ${{ inputs.snapshot }}
+          NEO_IMAGE_ORIGIN_SHA256: ${{ inputs.origin_sha256 }}
+          NEO_IMAGE_ARCHIVE_SHA256: ${{ inputs.image_sha256 }}
+          NEO_IMAGE_DIRECTORY: runtime-image
+          NEO_MAIN_ARCHIVE_SHA256: ${{ inputs.main_archive_sha256 }}
+          NEO_MAIN_ARCHIVE_BYTES: ${{ inputs.main_archive_bytes }}
+          NEO_MAIN_SHA: ${{ inputs.main_sha }}
+          RESTIC_REPOSITORY: ${{ secrets.NEO_RESTIC_REPOSITORY }}
+          AWS_DEFAULT_REGION: ${{ vars.NEO_B2_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.NEO_B2_AUDIT_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.NEO_B2_AUDIT_KEY }}
+          NEO_RESTIC_PASSWORD: ${{ secrets.NEO_RESTIC_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          set +e
+          python3 -B proposals/main-current-cold-restore.py > "$RUNNER_TEMP/neo-cold-result.json"
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/neo-cold-result.json"
+          exit "$status"
