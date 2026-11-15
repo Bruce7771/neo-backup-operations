@@ -50,7 +50,7 @@ def selected_source(name):
  if p.name.startswith('.env')or p.name.lower()in('secrets.json','credentials.json')or p.suffix.lower()in('.key','.pem','.p12','.pfx','.token'):return False
  if any(part in('uploads','user_uploads','node_modules','__pycache__')for part in p.parts):return False
  if name.endswith(('.env','.db','.sqlite','.sqlite3'))and name!='data/catalog_seed.db':return False
- return name.startswith(('backend/','apps/neoacademy/','frontend/'))or name in('data/catalog_seed.db','data/catalog_seed_manifest.json')
+ return name.startswith(('backend/','apps/neoacademy/','frontend/'))or name in('data/catalog_seed.db','data/catalog_seed_manifest.json','scripts/__init__.py','scripts/bootstrap_neo_agents_production.py','scripts/seed_neo_agents.py','scripts/release_neo_agents_incremental.py')
 def extract_source(archive,target):
  total=count=0
  with tarfile.open(archive,'r|gz')as source:
@@ -89,6 +89,8 @@ def actual_neo_probe(run,image,work,source,container):
     need(c.execute('PRAGMA quick_check').fetchall()==[('ok',)],'SYNTHETIC_TOOLS_INTEGRITY_REQUIRED');count=c.execute('SELECT count(*) FROM tools').fetchone()[0];need(count>=1000,'REAL_CATALOG_SEED_REQUIRED')
    finally:c.close()
    return {'actual_Neo_entrypoint':True,'network':'none','synthetic_schema_only':True,'health':json.loads(p.stdout),'catalog_rows':count,'tools_quick_check':True,'provider_calls':0}
+  status=subprocess.run(['docker','inspect','--format','{{.State.Running}}',container],capture_output=True,text=True,timeout=3)
+  if status.returncode==0 and status.stdout.strip()=='false':raise Refused('ACTUAL_NEO_PROCESS_EXITED_BEFORE_HEALTH')
   time.sleep(1)
  raise Refused('ACTUAL_NEO_HEALTH_NOT_READY')
 def main():
@@ -157,10 +159,22 @@ def main():
    probe=subprocess.run(['docker','image','inspect',tag],env=base_env,capture_output=True,timeout=15);need(probe.returncode!=0,'TAG_TARGET_NOT_EMPTY')
   phase='cold-load-ephemeral-docker';run(['docker','image','load','--input',str(files[NAMES[0]])],'DOCKER_LOAD',timeout=120)
   after=set(run(['docker','image','ls','-aq','--no-trunc'],'DOCKER_AFTER').decode().split());loaded=list(aliases.intersection(after));need(len(loaded)==1,'LOADED_ALIAS_AMBIGUITY');owned_image=loaded[0];v=json.loads(run(['docker','image','inspect',owned_image],'LOADED_INSPECT'))[0];loaded_kind=loaded_identity(v,origin,tags)
+  result.update(native_restore_verify=True,exact_image_archive_sha_verified=True,image_graph_verified=True,cold_docker_load_verified=True,ordered_layers_verified=11,loaded_identity_kind=loaded_kind,source_identity_kind=origin['image_identity_kind'])
   phase='network-none-actual-Neo-probe';started_container=True
+  result['actual_Neo_startup_attempted']=True
   observed=actual_neo_probe(run,owned_image,work,source,container);server=json.loads(run(['docker','version','--format','{{json .Server}}'],'ENGINE_VERSION'))
   result.update(status='success',native_restore_verify=True,restored_files=6,exact_image_archive_sha_verified=True,image_graph_verified=True,ordered_layers_verified=11,loaded_identity_kind=loaded_kind,source_identity_kind=origin['image_identity_kind'],attestation_descriptors_verified=verified['attestation_descriptors_verified'],attestation_signer_trust_claimed=False,source_engine=origin.get('docker_engine'),target_engine={k:server.get(k)for k in('Version','ApiVersion','Os','Arch')},runtime_probe=observed,main_application_code_or_database_run=True,real_user_data_mounted=False)
- except BaseException as exc:result.update(status='failed',phase=phase,failure_code=str(exc)if isinstance(exc,Refused)else type(exc).__name__)
+ except BaseException as exc:
+  result.update(status='failed',phase=phase,failure_code=str(exc)if isinstance(exc,Refused)else type(exc).__name__)
+  if phase=='network-none-actual-Neo-probe'and started_container:
+   logs=subprocess.run(['docker','logs','--tail','100',container],env=base_env,capture_output=True,timeout=5);events=[]
+   for line in(logs.stdout+logs.stderr).decode(errors='replace').splitlines():
+    if '[neo-startup-safe]'not in line:continue
+    try:
+     value=json.loads(line.split('[neo-startup-safe]',1)[1]);entry={k:value[k]for k in('event','phase','exit_code')if k in value}
+     entry['exceptions']=[{'type':str(v.get('type',''))[:120],'frames':[{k:f[k]for k in('file','function','line')if k in f}for f in v.get('frames',[])[-6:]]}for v in value.get('exceptions',[])[:4]];events.append(entry)
+    except(ValueError,TypeError,AttributeError):pass
+   result['safe_startup_events']=events[-5:]
  finally:
   if started_container:subprocess.run(['docker','rm','-f',container],env=base_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=15)
   cleanup_synthetic_permissions(work,temporary,owned_image,base_env)

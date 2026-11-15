@@ -8,6 +8,7 @@ class Tests(unittest.TestCase):
  def test_private_data_not_selected(self):
   for name in('backend/uploads/private.txt','apps/neoacademy/neo_portal.db','frontend/.env','frontend/.env.production','backend/app/config/secrets.json','backend/app/key.pem','frontend/node_modules/tool.js','data/portal.db'):self.assertFalse(m.selected_source(name))
   self.assertTrue(m.selected_source('backend/app/main.py'));self.assertTrue(m.selected_source('data/catalog_seed.db'))
+  self.assertTrue(m.selected_source('scripts/bootstrap_neo_agents_production.py'));self.assertTrue(m.selected_source('scripts/seed_neo_agents.py'));self.assertFalse(m.selected_source('scripts/unrelated-history.py'))
  def test_traversal_refused(self):
   for name in('../backend/main.py','/backend/main.py','backend/../../etc/private'):
    with self.assertRaises(m.Refused):m.selected_source(name)
