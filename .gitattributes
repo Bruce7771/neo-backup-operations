@@ -63,3 +63,9 @@ proposals/run-long-bounded-external-trial.publication.py -text
 proposals/retention-readonly-check.long-bounded.publication.yml -text
 proposals/external-reader-contract.long-bounded.publication.py -text
 proposals/long-bounded-publication-test.py -text
+proposals/reviewed-control-artifacts.proposed.py -text
+proposals/build-reviewed-controls-retention-engine.proposed.py -text
+proposals/reviewed-control-artifacts-test.py -text
+proposals/run-reviewed-controls-external-trial.publication.py -text
+proposals/retention-readonly-check.reviewed-controls.publication.yml -text
+proposals/external-reader-contract.reviewed-controls.publication.py -text
