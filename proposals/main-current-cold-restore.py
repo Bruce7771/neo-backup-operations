@@ -41,7 +41,7 @@ def cleanup_synthetic_permissions(work,temporary,image,base_env):
  data=work/'synthetic-data'
  if not image or not data.exists():return
  need(data.resolve()==data and data.is_dir(),'SYNTHETIC_CLEANUP_PATH_REQUIRED')
- program="import os,stat\nfor root,dirs,files in os.walk('/cleanup',followlinks=False):\n if root!='/cleanup':os.chmod(root,0o777)\n for name in files:\n  p=os.path.join(root,name)\n  if not os.path.islink(p):os.chmod(p,0o666)"
+ program="import os\nfor root,dirs,files in os.walk('/cleanup',followlinks=False):\n if os.lstat(root).st_uid==os.getuid():os.chmod(root,0o777)"
  result=subprocess.run(['docker','run','--rm','--network','none','--read-only','--cap-drop','ALL','--security-opt','no-new-privileges','--user','1000:1000','--pids-limit','32','--memory','64m','--cpus','1','--mount','type=bind,source='+str(data)+',target=/cleanup',image,'python3','-B','-c',program],env=base_env,capture_output=True,timeout=20)
  need(result.returncode==0,'SYNTHETIC_PERMISSION_CLEANUP_REQUIRED')
 def selected_source(name):
@@ -176,10 +176,14 @@ def main():
     except(ValueError,TypeError,AttributeError):pass
    result['safe_startup_events']=events[-5:]
  finally:
-  if started_container:subprocess.run(['docker','rm','-f',container],env=base_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=15)
-  cleanup_synthetic_permissions(work,temporary,owned_image,base_env)
-  if owned_image and owned_image not in before:subprocess.run(['docker','image','rm',owned_image],env=base_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=30)
-  need(work.resolve()==work and work.parent==temporary and work.name.startswith('neo-main-image-cold-'),'CLEANUP_NAMESPACE_REQUIRED');shutil.rmtree(work);result['ephemeral_files_removed']=True;print(json.dumps(result,sort_keys=True))
+  result['pre_cleanup_status']=result['status'];result['ephemeral_files_removed']=False
+  try:
+   if started_container:subprocess.run(['docker','rm','-f',container],env=base_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=15)
+   cleanup_synthetic_permissions(work,temporary,owned_image,base_env)
+   if owned_image and owned_image not in before:subprocess.run(['docker','image','rm',owned_image],env=base_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=30)
+   need(work.resolve()==work and work.parent==temporary and work.name.startswith('neo-main-image-cold-'),'CLEANUP_NAMESPACE_REQUIRED');shutil.rmtree(work);result['ephemeral_files_removed']=True
+  except BaseException as exc:result.update(status='failed',cleanup_failure_code=str(exc)if isinstance(exc,Refused)else type(exc).__name__)
+  print(json.dumps(result,sort_keys=True))
  return 0 if result['status']=='success'else 1
 if __name__=='__main__':
  previous={s:signal.signal(s,lambda *_:(_ for _ in()).throw(InterruptedError('runner cancellation')))for s in(signal.SIGINT,signal.SIGTERM)}

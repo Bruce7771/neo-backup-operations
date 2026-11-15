@@ -21,4 +21,8 @@ class Tests(unittest.TestCase):
    result=m.extract_source(a,target);self.assertEqual(result['selected_files'],3);self.assertFalse((target/'apps/neoacademy/neo_portal.db').exists());self.assertEqual((target/'backend').stat().st_mode&0o777,0o755)
  def test_real_application_probe_is_not_generic_import(self):
   text=p.read_text();self.assertIn('backend.app.startup_entrypoint',text);self.assertIn("v.get('catalog')=='ok'",text);self.assertIn("'--network','none'",text);self.assertIn("'NEO_SOCIAL_WORKER':'0'",text);self.assertNotIn("'forget'",text);self.assertNotIn("'prune'",text)
+ def test_cleanup_outside_owned_namespace_refused_before_docker(self):
+  with tempfile.TemporaryDirectory()as td:
+   parent=pathlib.Path(td);wrong=parent/'unrelated';wrong.mkdir()
+   with self.assertRaisesRegex(m.Refused,'CLEANUP_NAMESPACE_REQUIRED'):m.cleanup_synthetic_permissions(wrong,parent,'synthetic-not-used',{})
 if __name__=='__main__':unittest.main()
