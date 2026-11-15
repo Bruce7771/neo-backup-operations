@@ -54,3 +54,5 @@ proposals/staged-derive-test.py -text
 proposals/native-dump-controlled-diagnostic.proposed.py -text
 proposals/native-dump-controlled-diagnostic-test.py -text
 proposals/run-native-dump-diagnostic.proposed.py -text
+proposals/build-cold-native-retention-engine.proposed.py -text
+proposals/cold-native-retention-engine-test.py -text
