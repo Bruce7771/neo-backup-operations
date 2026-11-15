@@ -180,6 +180,7 @@ def main(engine, argv=None):
             audit[key] = env[key]
         bundle_path = work / 'preplan.json'
         audit['NEO_RETENTION_VALIDATION_BUNDLE_OUTPUT'] = str(bundle_path)
+        audit['NEO_STAGED_JOB_START'] = repr(time.monotonic())
         # Engine is built by the same-job FAMILY builder. No SSH credential enters preplan.
         bounded([sys.executable, str(Path(engine) / 'retention-audit.py')], audit, 4500)
         bundle = json.loads(bundle_path.read_text())

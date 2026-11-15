@@ -4,7 +4,7 @@ Only fixed-path adapters and OS status observations are fixture-local. This is
 not a production SSH/status proof. Repo/env/contents are fresh and synthetic;
 no B2 credentials, application databases or provider calls are involved.
 """
-import hashlib,importlib.util,json,os,pathlib,subprocess,sys,tempfile,time
+import argparse,hashlib,importlib.util,json,os,pathlib,shutil,subprocess,sys,tempfile,time
 HERE=pathlib.Path(__file__).parent
 def load(n,p):
  s=importlib.util.spec_from_file_location(n,p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
@@ -12,12 +12,16 @@ m=load('existing_coordinator_native_fixture',HERE/'publication-existing-coordina
 g=load('gate_native_fixture',HERE/'durable-publication-hold.proposed.py')
 
 def main():
+ parser=argparse.ArgumentParser();parser.add_argument('--restic-executable',default=shutil.which('restic'));args=parser.parse_args()
+ if not args.restic_executable:raise ValueError('Explicit installed restic executable required')
+ restic=str(pathlib.Path(args.restic_executable).resolve(strict=True))
+ if not pathlib.Path(restic).is_file() or not os.access(restic,os.X_OK):raise ValueError('Restic executable unavailable')
  with tempfile.TemporaryDirectory(prefix='neo-real-local-publication-')as td:
   root=pathlib.Path(td);repo=root/'repository';home=root/'home';home.mkdir();gate=root/'gate';gate.mkdir(mode=0o700);lib=root/'libexec';lib.mkdir(mode=0o700)
   env={'PATH':'/usr/bin:/bin','HOME':str(home),'RESTIC_REPOSITORY':str(repo),'RESTIC_PASSWORD':'LOCAL-SYNTHETIC-ONLY-NOT-A-SERVICE-KEY'}
   calls=[]
   def native(args,timeout=20):
-   calls.append(tuple(args));r=subprocess.run(['restic']+args,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,check=True,timeout=timeout)
+   calls.append(tuple(args));r=subprocess.run([restic]+args,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,check=True,timeout=timeout)
    if len(r.stdout)>2*1024*1024:raise ValueError('Synthetic native output exceeded bound')
    return r.stdout
   version=native(['version']).decode();assert version.startswith('restic 0.16.4 ')
@@ -25,7 +29,7 @@ def main():
   def publish(name,payload):
    p=root/name;p.mkdir();(p/'component.json').write_text(json.dumps(payload,sort_keys=True))
    with g.Gate(gate).writer()as fd:
-    result=subprocess.run(['restic','backup','--json','--host','local-main-only-publication-fixture',str(p)],env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,check=True,timeout=20,pass_fds=(fd,))
+    result=subprocess.run([restic,'backup','--json','--host','local-main-only-publication-fixture',str(p)],env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,check=True,timeout=20,pass_fds=(fd,))
    sid=[r['snapshot_id']for r in map(json.loads,result.stdout.splitlines())if r.get('message_type')=='summary'][0];return sid,p
   obsolete,_=publish('obsolete',{'synthetic':True,'revision':1});parent,_=publish('parent',{'synthetic':True,'revision':2});pre_inventory=json.loads(native(['snapshots','--json']))
   child,childpath=publish('child',{'synthetic':True,'external_parent_snapshot':parent})

@@ -88,3 +88,7 @@ proposals/unverified-base-family-retention-engine-test.py -text
 proposals/maintenance-transport-hold-smoke.publication.yml -text
 proposals/maintenance-transport-hold-smoke-test.py -text
 proposals/retention-actual-entrychain-test.py -text
+.github/workflows/retention-manual.yml -text
+proposals/publication-native-endtoend-test.py -text
+proposals/publication-retention-coordinator.candidate.py -text
+proposals/publication-maintenance-handoff-test.py -text
