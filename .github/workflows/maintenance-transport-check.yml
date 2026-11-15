@@ -1,6 +1,12 @@
 name: Restricted backup maintenance transport check
 on:
   workflow_dispatch:
+    inputs:
+      publication_hold_test:
+        description: Explicit publication HOLD/release smoke only; no B2 operation
+        type: boolean
+        required: false
+        default: false
 permissions: {}
 concurrency:
   group: backup-maintenance-transport-check
@@ -56,4 +62,65 @@ jobs:
             'active_known_repository_clients':state.get('active_known_repository_clients'),
             'fence_acquired_by_this_check':False,'backup_or_application_mutation':False}))
           PY
-      # This job never acquires a fence, reads databases, prunes B2 or uploads artifacts.
+      # Default transport step never acquires a fence, reads databases, prunes B2 or uploads artifacts.
+
+      - name: Explicit bounded publication HOLD and release only
+        if: ${{ inputs.publication_hold_test == true }}
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.NEO_MAINTENANCE_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.NEO_MAINTENANCE_SSH_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 - <<'PY'
+          import json,os,pathlib,secrets,signal,subprocess,sys,tempfile,time
+          phase='prepare';holding=False;released=False
+          def stopped(signum,frame):raise RuntimeError('Interrupted bounded smoke')
+          signal.signal(signal.SIGTERM,stopped);signal.signal(signal.SIGINT,stopped)
+          try:
+            with tempfile.TemporaryDirectory(prefix='neo-hold-smoke-',dir=os.environ['RUNNER_TEMP'])as work:
+              p=pathlib.Path(work);key=p/'key';hosts=p/'known_hosts'
+              key.write_text(os.environ.pop('SSH_PRIVATE_KEY'));hosts.write_text(os.environ.pop('SSH_KNOWN_HOSTS'))
+              key.chmod(0o600);hosts.chmod(0o600)
+              ssh=['ssh','-T','-F','/dev/null','-o','BatchMode=yes','-o','ConnectTimeout=8',
+                '-o','IdentitiesOnly=yes','-o','ClearAllForwardings=yes','-o','StrictHostKeyChecking=yes',
+                '-o','UserKnownHostsFile='+str(hosts),'-i',str(key),'root@2.24.129.173']
+              env={k:os.environ[k]for k in('PATH','HOME','LANG','LC_ALL')if k in os.environ}
+              def call(command,body,denial=False):
+                assert command in('writer-status','publication-acquire','publication-release')
+                r=subprocess.run(ssh+[command],input=json.dumps(body).encode(),env=env,
+                  stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=12)
+                assert len(r.stdout)<=65536;value=json.loads(r.stdout)
+                if denial:assert r.returncode in(1,2)and value=={'ok':False,'failure_type':'ValueError'}
+                else:assert r.returncode==0 and value.get('ok')is not False
+                return value
+              phase='fresh-readonly-idle';state=call('writer-status',{})
+              assert state.get('schema')==2 and state.get('repository_id')=='4daea08c03744d89ff9954c22b337c38beea7a2cc7c517d50e7370776fc13a11'
+              assert state.get('publication_producers_enrolled')is True and state.get('source_review_integrity')is True
+              assert state.get('local_inventory_complete')is True and state.get('active_known_writer_units')==[]
+              assert state.get('active_known_repository_clients')==0 and state.get('unknown_repository_clients')==0
+              assert state.get('unknown_writer_units')==[] and state['next_known_writer_start_epoch']-time.time()>120
+              nonce=secrets.token_hex(32);policy=state['writer_policy_sha256'];started=time.monotonic()
+              try:
+                phase='acquire';holding=True
+                acquired=call('publication-acquire',{'owner_nonce':nonce,'producer_policy_sha256':policy,'maximum_seconds':60})
+                assert acquired.get('acquired')is True and acquired.get('application_writers_blocked')is False
+                assert abs(acquired['expires_epoch']-acquired['created_epoch']-60)<0.01
+                phase='durable-HOLD-probe-window';time.sleep(8)
+                phase='second-owner-denied'
+                call('publication-acquire',{'owner_nonce':secrets.token_hex(32),'producer_policy_sha256':policy,'maximum_seconds':60},denial=True)
+              finally:
+                if holding:
+                  phase_before_release=phase;phase='release-known-no-native-action'
+                  result=call('publication-release',{'owner_nonce':nonce});assert result.get('released')is True
+                  holding=False;released=True;phase=phase_before_release
+              print(json.dumps({'scope':'actual-explicit-publication-HOLD-release-smoke','HOLD_acquired':True,
+                'other_owner_acquire_denied':True,'HOLD_released':released,'elapsed_seconds':round(time.monotonic()-started,3),
+                'native_action_started':False,'B2_mutations':False,'application_writers_blocked':False,
+                'new_keys':0,'schedule_claim':False}))
+          except BaseException as error:
+            print(json.dumps({'scope':'publication-HOLD-release-smoke-failed-closed','phase':phase,
+              'failure_type':type(error).__name__,'HOLD_may_remain':holding,'manual_reconciliation_required':holding,
+              'native_action_started':False,'B2_mutations':False}));raise SystemExit(1)
+          PY

@@ -28,6 +28,10 @@ class Tests(unittest.TestCase):
   for denied in [{'uid':0},{'ok':True},{'ok':False,'failure_type':'PermissionError'}]:self.assertNotEqual(self.run_assertion(denied=denied),0)
  def test_guards_secrets_permissions_runner_and_timeout_unchanged(self):
   old=yaml.safe_load(ORIGINAL.read_text());new=yaml.safe_load(PROPOSED.read_text())
+  if len(old['jobs']['transport']['steps'])==2:
+   self.assertEqual(old['jobs']['transport']['steps'][-1]['name'],'Explicit bounded publication HOLD and release only')
+   event='on'if'on'in old else True;inputs=old[event]['workflow_dispatch']['inputs'];self.assertEqual(set(inputs),{'publication_hold_test'});self.assertIs(inputs['publication_hold_test']['default'],False)
+   old[event]['workflow_dispatch']=None;old['jobs']['transport']['steps']=old['jobs']['transport']['steps'][:1]
   old['jobs']['transport']['steps'][0]['run']='REPLACED_ASSERTIONS';new['jobs']['transport']['steps'][0]['run']='REPLACED_ASSERTIONS';self.assertEqual(old,new)
  def test_no_mutation_verbs_and_bash_parses(self):
   self.assertNotIn('publication-acquire',BODY);self.assertNotIn('acquire 300',BODY);self.assertNotIn('restic ',BODY)

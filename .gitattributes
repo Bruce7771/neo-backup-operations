@@ -85,3 +85,6 @@ proposals/maintenance-transport-schema2.publication.yml -text
 proposals/maintenance-transport-schema2-test.py -text
 proposals/build-unverified-base-family-retention-engine.proposed.py -text
 proposals/unverified-base-family-retention-engine-test.py -text
+proposals/maintenance-transport-hold-smoke.publication.yml -text
+proposals/maintenance-transport-hold-smoke-test.py -text
+proposals/retention-actual-entrychain-test.py -text
