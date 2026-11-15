@@ -24,7 +24,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.repository == 'Bruce7771/neo-backup-operations' && github.ref == 'refs/heads/main'
     environment: NEO_BACKUP_MAINTENANCE
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 80
     steps:
       - name: Load exact reviewed operational commit
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -78,6 +78,8 @@ jobs:
         run: |
           python3 proposals/native-hourly-integration-test.py
           python3 proposals/native-empty-file-format-fix-test.py
+          python3 proposals/long-bounded-retention-engine-test.py
+          python3 proposals/long-bounded-publication-test.py
       - name: One explicit serialized readonly native-catalog trial
         if: ${{ inputs.native_trial && !inputs.native_dump_diagnostic }}
         env:

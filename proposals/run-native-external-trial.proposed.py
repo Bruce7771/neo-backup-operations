@@ -11,11 +11,11 @@ def main():
  contract=load('contract',here/'external-reader-contract.proposed.py');proof=contract.verify(dict(os.environ))
  # Audit3 has no upload/delete permission. No maintenance/master/SSH injection.
  if any(v for k,v in os.environ.items()if any(w in k.upper()for w in('MASTER','MAINTENANCE_KEY','SSH_PRIVATE'))):raise ValueError('Unexpected elevated credential in readonly trial')
- root=Path(os.environ['RUNNER_TEMP']).resolve();builder=load('builder',here/'build-cold-native-retention-engine.proposed.py')
+ root=Path(os.environ['RUNNER_TEMP']).resolve();builder=load('builder',here/'build-long-bounded-retention-engine.proposed.py')
  with tempfile.TemporaryDirectory(prefix='neo-native-external-trial-',dir=root)as tmp:
   folder=Path(tmp);folder.chmod(0o700);engine=builder.build(here.parent/'scripts',folder/'engine')
   print(json.dumps({'scope':'explicit-native-external-trial-contract',**proof}),flush=True)
-  subprocess.run([sys.executable,str(engine/'retention-readonly-check.py')],env=dict(os.environ),stdin=subprocess.DEVNULL,check=True,timeout=540)
+  subprocess.run([sys.executable,str(engine/'retention-readonly-check.py')],env=dict(os.environ),stdin=subprocess.DEVNULL,check=True,timeout=4500)
 if __name__=='__main__':
  try:main()
  except Exception as error:

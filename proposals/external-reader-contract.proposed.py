@@ -1,7 +1,7 @@
 """Explicit external-only GHA serialization contract; local default remains SH."""
 import hashlib,os,re
 from pathlib import Path
-WORKFLOW_SHA256='69b2cfa1c47c652e950b70c044dfc5bbe5099b6292d70bfb1f1944064daeec40'
+WORKFLOW_SHA256='960134ea26e6a376f0abceaf9b71b6963bd30d27a4e47a70f52bd3e29099f6e0'
 MODE='github-serialized-readonly-native-trial'
 def require(ok):
  if not ok:raise ValueError('External reader contract not established')
