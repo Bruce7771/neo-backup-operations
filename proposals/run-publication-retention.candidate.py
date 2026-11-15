@@ -25,6 +25,10 @@ def build_engine(here, destination):
     old = "['restic','--no-lock','forget','--dry-run'"
     if source.count(old) != 1:
         raise ValueError('Exact staged native dry-run anchor changed')
+    inventory = "run(['restic','snapshots','--json'],env)"
+    if source.count(inventory) != 2:
+        raise ValueError('Exact initial/final inventory read anchors changed')
+    source = source.replace(inventory, "run(['restic','--no-lock','snapshots','--json'],env,90)")
     compile(source, str(audit), 'exec')
     audit.write_text(source, encoding='utf-8')
     return engine
