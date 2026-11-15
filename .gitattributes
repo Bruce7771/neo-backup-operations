@@ -51,3 +51,6 @@ proposals/current-ops-kit-closure-test.py -text
 proposals/staged-derive.proposed.py -text
 proposals/build-staged-retention-engine.proposed.py -text
 proposals/staged-derive-test.py -text
+proposals/native-dump-controlled-diagnostic.proposed.py -text
+proposals/native-dump-controlled-diagnostic-test.py -text
+proposals/run-native-dump-diagnostic.proposed.py -text
