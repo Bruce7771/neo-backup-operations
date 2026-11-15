@@ -199,8 +199,9 @@ def main(engine, argv=None):
         env.update(RESTIC_PASSWORD_FILE=str(password), XDG_CACHE_HOME=str(work / 'cache'))
         native = subprocess_environment(env, native=True)
         def call(arguments, timeout=60):
-            # Mutation never accepts --no-lock. All ordinary reads keep default SH.
-            require('--no-lock' not in arguments, 'Native maintenance locks cannot be disabled')
+            # Actual mutation always requires native EX; only integrity check has
+            # the exact nonmutating exception used by the accepted external auditor.
+            require('--no-lock' not in arguments or arguments == ['--no-lock', 'check'], 'Native maintenance locks cannot be disabled')
             return bounded(['restic'] + arguments, native, timeout)
         require(call(['version'], 10).decode().startswith('restic 0.16.4 '), 'Pinned native restic required')
         bucket, endpoint, prefix = access.repository_target(env['RESTIC_REPOSITORY'])
@@ -227,7 +228,7 @@ def main(engine, argv=None):
         checked = []
         def postcheck(current):
             post.validate(current, policy)
-            call(['check'], 150)
+            call(['--no-lock', 'check'], 150)
             folder = work / ('post-' + secrets.token_hex(4)); folder.mkdir(mode=0o700)
             result = post.restore(current, policy, folder,
                 lambda arguments: call([a for a in arguments if a != '--no-lock'], 90))

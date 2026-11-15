@@ -90,7 +90,7 @@ class CandidateTests(unittest.TestCase):
         source = (HERE / 'publication-retention-coordinator.candidate.py').read_text(encoding='utf-8')
         self.assertIn("default='plan'", source)
         self.assertNotIn("add_argument('--prune'", source)
-        self.assertIn("call(['check'], 150)", source)
+        self.assertIn("call(['--no-lock', 'check'], 150)", source)
     def test_launcher_uses_actual_family_same_job_builder(self):
         source = (HERE / 'run-publication-retention.candidate.py').read_text(encoding='utf-8')
         self.assertIn('build-same-job-tail-retention-engine.proposed.py', source)

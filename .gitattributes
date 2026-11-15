@@ -100,3 +100,4 @@ proposals/reviewed-composed-control-two-point-test.py -text
 proposals/publication-audit-child-diagnostic-test.py -text
 proposals/run-publication-retention.candidate.py -text
 proposals/publication-retention-coordinator-candidate-test.py -text
+proposals/publication-check-lock-exception-test.py -text
