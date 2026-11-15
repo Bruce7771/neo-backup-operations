@@ -174,9 +174,40 @@ def run_audit_child(engine, audit, timeout=4500):
                     print(json.dumps({'audit_safe_failure': diagnostic}), file=sys.stderr, flush=True)
             raise Refused('audit-child-failed-inspect-safe-diagnostic')
 
+def inventory_probe(native, work, timeout=90):
+    """Exactly one unlocked inventory read; never create/remove repository locks."""
+    maximum = 32 * 1024 * 1024
+    command = ['/usr/bin/prlimit', '--fsize=' + str(maximum) + ':' + str(maximum), '--',
+               'restic', '--no-lock', 'snapshots', '--json']
+    started = time.monotonic(); exit_class = 'native-exit-nonzero'
+    with tempfile.TemporaryFile(dir=work) as output, tempfile.TemporaryFile(dir=work) as errors:
+        process = subprocess.Popen(command, env=native, stdin=subprocess.DEVNULL, stdout=output,
+                                   stderr=errors, start_new_session=True)
+        try:
+            process.wait(timeout=timeout)
+            if process.returncode == 0: exit_class = 'success'
+        except subprocess.TimeoutExpired:
+            exit_class = 'timeout'
+            os.killpg(process.pid, signal.SIGINT)
+            try: process.wait(timeout=8)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL); process.wait(timeout=2)
+        elapsed = round(time.monotonic() - started, 3)
+        size = output.tell(); require(size <= maximum, 'Inventory probe output bound exceeded')
+        output.seek(0); raw = output.read(maximum + 1); count = None
+        if exit_class == 'success':
+            try:
+                rows = json.loads(raw)
+                if not isinstance(rows, list) or len(rows) > 50000: raise ValueError()
+                if any(not isinstance(r, dict) or re.fullmatch('[0-9a-f]{64}', r.get('id', '')) is None for r in rows): raise ValueError()
+                count = len(rows)
+            except (ValueError, TypeError): exit_class = 'invalid-bounded-json'
+        return dict(result='inventory-probe', elapsed_seconds=elapsed, snapshot_count=count,
+                    bytes=size, sha256=hashlib.sha256(raw).hexdigest(), exit_class=exit_class)
+
 def main(engine, argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--mode', choices=('plan', 'apply', 'policy-apply'), default='plan')
+    parser.add_argument('--mode', choices=('plan', 'apply', 'policy-apply', 'inventory-probe'), default='plan')
     parser.add_argument('--expected-digest', default='')
     args = parser.parse_args(argv)
     os.umask(0o077)
@@ -207,6 +238,8 @@ def main(engine, argv=None):
         bucket, endpoint, prefix = access.repository_target(env['RESTIC_REPOSITORY'])
         access.authorize_pair(env['AWS_ACCESS_KEY_ID'], env['AWS_SECRET_ACCESS_KEY'],
                               access.MAINTENANCE, bucket, endpoint, prefix)
+        if args.mode == 'inventory-probe':
+            return inventory_probe(native, work)
         repository = json.loads(call(['cat', 'config']))['id']
         audit = dict(native, NEO_RESTIC_PASSWORD=env['NEO_RESTIC_PASSWORD'])
         for key in ('NEO_POLICY_JSON', 'NEO_PROTECTED_JSON', 'NEO_RESTORED_JSON', 'NEO_DEPENDENCIES_JSON', 'NEO_HOURLY_RECOVERY_JSON'):

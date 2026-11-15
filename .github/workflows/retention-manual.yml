@@ -7,7 +7,7 @@ on:
       mode:
         description: PLAN by default; policy-apply requires the unchanged reviewed contract
         type: choice
-        options: [plan, policy-apply]
+        options: [plan, policy-apply, inventory-probe]
         default: plan
       reviewed_sha:
         description: Exact reviewed main commit containing this workflow and its code
@@ -82,6 +82,7 @@ jobs:
           python3 -B proposals/reviewed-composed-control-two-point-test.py
           python3 -B proposals/native-reader-timeout-metrics-test.py
           python3 -B proposals/publication-check-lock-exception-test.py
+          python3 -B proposals/publication-inventory-probe-test.py
           sudo -n /usr/bin/python3 -B proposals/publication-native-endtoend-test.py --restic-executable "$(command -v restic)"
       - name: Private plan or unchanged-policy bounded forget
         env:
