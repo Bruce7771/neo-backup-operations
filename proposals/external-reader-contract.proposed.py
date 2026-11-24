@@ -28,4 +28,6 @@ def command(args,env):
  verb=clean[0]
  require(verb in('version','snapshots','cat','dump','restore','check','forget'))
  if verb=='forget':require('--dry-run'in clean and '--json'in clean and '--prune'not in clean)
+ if env['NEO_EXTERNAL_READER_MODE']==SCHEDULED_MODE and tail==['snapshots','--json']:
+  return ['restic','--no-lock','-o','s3.connections=12']+tail
  return ['restic','--no-lock']+tail
