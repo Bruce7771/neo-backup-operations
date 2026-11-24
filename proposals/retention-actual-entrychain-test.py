@@ -29,4 +29,26 @@ class Tests(unittest.TestCase):
   with tempfile.TemporaryDirectory()as td:
    out=m.build(ROOT/'scripts',pathlib.Path(td)/'engine');self.assertIn('protected-unverified-base-family',(out/'retention-plan.py').read_text());self.assertIn('protected-unverified-base-family',(out/'hourly_selfcontained_v3.py').read_text())
    for f in out.glob('*.py'):py_compile.compile(str(f),doraise=True)
+ def test_weekly_cold_inventory_deadline_preserves_job_budgets(self):
+  path=P/'run-scheduled-retention-audit.proposed.py'
+  spec=importlib.util.spec_from_file_location('scheduled_audit',path);launcher=importlib.util.module_from_spec(spec);spec.loader.exec_module(launcher)
+  builder=launcher.load('family_builder',P/FAMILY)
+  with tempfile.TemporaryDirectory()as td:
+   engine=builder.build(ROOT/'scripts',pathlib.Path(td)/'engine')
+   audit=engine/'retention-audit.py';checker=engine/'retention-readonly-check.py'
+   before=audit.read_text();checker_before=checker.read_bytes()
+   anchor="inventory=run(['restic','snapshots','--json'],env)"
+   self.assertEqual(before.count(anchor),1)
+   launcher.configure_cold_inventory_deadline(engine)
+   self.assertEqual(audit.read_text(),before.replace(anchor,anchor[:-1]+',timeout=240)'))
+   self.assertEqual(checker.read_bytes(),checker_before)
+ def test_only_scheduled_inventory_uses_extra_connections(self):
+  path=P/'external-reader-contract.proposed.py'
+  spec=importlib.util.spec_from_file_location('reader_contract',path);contract=importlib.util.module_from_spec(spec);spec.loader.exec_module(contract)
+  for workflow,mode,job,event in [('retention-audit.yml',contract.SCHEDULED_MODE,'audit','schedule'),('retention-readonly-check.yml',contract.MODE,'readonly-maintenance','workflow_dispatch')]:
+   env=dict(NEO_EXTERNAL_READER_MODE=mode,GITHUB_ACTIONS='true',GITHUB_REPOSITORY='Bruce7771/neo-backup-operations',GITHUB_REF='refs/heads/main',GITHUB_EVENT_NAME=event,GITHUB_JOB=job,GITHUB_WORKFLOW_REF='Bruce7771/neo-backup-operations/.github/workflows/'+workflow+'@refs/heads/main',GITHUB_SHA='a'*40,NEO_REVIEWED_TRIAL_COMMIT='a'*40,GITHUB_RUN_ID='123',GITHUB_RUN_ATTEMPT='1',GITHUB_WORKSPACE=str(ROOT))
+   expected=['restic','--no-lock']+(['-o','s3.connections=12']if mode==contract.SCHEDULED_MODE else[])+['snapshots','--json']
+   self.assertEqual(contract.command(['restic','snapshots','--json'],env),expected)
+   self.assertEqual(contract.command(['restic','forget','--dry-run','--json'],env),['restic','--no-lock','forget','--dry-run','--json'])
+   with self.assertRaises(ValueError):contract.command(['restic','forget','--prune'],env)
 if __name__=='__main__':unittest.main()
